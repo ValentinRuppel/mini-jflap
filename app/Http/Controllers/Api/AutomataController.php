@@ -5,13 +5,21 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Automata;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AutomataController extends Controller
 {
     public function index()
     {
-        return Automata::all();
+        $userId = Auth::id();
+
+        $automatas = Automata::where('visibility', 'public')
+            ->orWhere('owner_id', $userId)
+            ->get();
+
+        return response()->json($automatas);
     }
+
 
     public function store(Request $request)
     {
@@ -19,7 +27,10 @@ class AutomataController extends Controller
             'nombre' => 'required|string|max:100',
             'tipo' => 'required|in:DFA,NFA',
             'json_definicion' => 'required|array',
+            'visibility' => 'in:private,public',
         ]);
+
+        $data['owner_id'] = Auth::id();
 
         $automata = Automata::create($data);
 

@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('nombre');
             $table->enum('tipo', ['DFA', 'NFA'])->default('DFA');
             $table->json('json_definicion');
+            $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
+            $table->enum('visibility', ['private','public','shared'])->default('private');
+            $table->unsignedInteger('version')->default(1);
             $table->timestamps();
         });
     }

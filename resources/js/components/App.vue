@@ -1,40 +1,39 @@
 <template>
-  <div class="p-6">
-    <h1 class="text-3xl font-bold mb-6">Mini JFLAP 🚀</h1>
-
-    <!-- Formulario de creación -->
-    <AutomataForm @automata-creado="refrescarLista" />
-
-    <div class="grid grid-cols-2 gap-6">
-      <!-- Lista de autómatas -->
-      <AutomataList ref="lista" @select-automata="seleccionarAutomata" />
-
-      <!-- Tester + Grafo -->
-      <div>
-        <AutomataTester v-if="automataSeleccionado" :automata="automataSeleccionado"/>
-        <AutomataGraph v-if="automataSeleccionado" :jsonDefinicion="automataSeleccionado.json_definicion"/>
-      </div>
-    </div>
+  <div class="min-h-screen bg-gray-100">
+    <LoginForm 
+      v-if="view === 'login'" 
+      @login-success="setUser" 
+      @change-view="view = $event" 
+    />
+    <RegisterForm 
+      v-if="view === 'register'" 
+      @register-success="setUser" 
+      @change-view="view = $event" 
+    />
+    <Dashboard 
+      v-if="view === 'dashboard'" 
+      :user="user" 
+      @logout="logout" 
+    />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import AutomataForm from './AutomataForm.vue';
-import AutomataList from './AutomataList.vue';
-import AutomataTester from './AutomataTester.vue';
-import AutomataGraph from './AutomataGraph.vue';
+import { ref } from 'vue'
+import LoginForm from './LoginForm.vue'
+import RegisterForm from './RegisterForm.vue'
+import Dashboard from './Dashboard.vue'
 
-const automataSeleccionado = ref(null);
-const lista = ref(null);
+const view = ref('login')
+const user = ref(null)
 
-function seleccionarAutomata(a) {
-  automataSeleccionado.value = a;
+function setUser(u) {
+  user.value = u
+  view.value = 'dashboard'
 }
 
-function refrescarLista() {
-  if (lista.value && lista.value.cargar) {
-    lista.value.cargar();
-  }
+function logout() {
+  user.value = null
+  view.value = 'login'
 }
 </script>
