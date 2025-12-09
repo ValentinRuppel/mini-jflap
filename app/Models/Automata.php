@@ -11,11 +11,10 @@ class Automata extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'nombre',
         'tipo',
         'json_definicion',
-        'owner_id',
-        'visibility',
     ];
 
     protected $casts = [
@@ -23,9 +22,9 @@ class Automata extends Model
     ];
 
     // Relación con el usuario propietario
-    public function owner()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'owner_id');
+        return $this->belongsTo(User::class);
     }
     public function compartidosCon()
     {

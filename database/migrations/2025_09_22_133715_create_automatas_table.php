@@ -13,12 +13,10 @@ return new class extends Migration
     {
         Schema::create('automatas', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // Relación con usuario
             $table->string('nombre');
-            $table->enum('tipo', ['DFA', 'NFA'])->default('DFA');
-            $table->json('json_definicion');
-            $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
-            $table->enum('visibility', ['private','public','shared'])->default('private');
-            $table->unsignedInteger('version')->default(1);
+            $table->string('tipo'); 
+            $table->json('json_definicion'); // Columna vital para el JSON
             $table->timestamps();
         });
     }

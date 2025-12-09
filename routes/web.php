@@ -14,9 +14,6 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -24,9 +21,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/automatas', [AutomataPageController::class, 'index'])->name('automatas.index');
+    Route::get('/automatas/create', [AutomataPageController::class, 'create'])->name('automatas.create'); // Nueva
+    Route::post('/automatas', [AutomataPageController::class, 'store'])->name('automatas.store');
+    // Usa {automata} para que Laravel busque el ID automáticamente
+    Route::get('/automatas/{automata}', [AutomataPageController::class, 'show'])->name('automatas.show');   
 });
 
 

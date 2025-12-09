@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@inertiajs/progress": "^0.2.7",
-    "@inertiajs/vue3": "^2.2.9"
+    "@inertiajs/vue3": "^2.2.9",
+    "vis-network": "^10.0.2"
   }
 }

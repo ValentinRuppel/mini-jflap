@@ -150,7 +150,7 @@ async function guardarAutomata() {
   }
 
   try {
-    await axios.post('/api/automatas', {
+    await axios.post('/automatas', {
       nombre: nombre.value,
       tipo: tipo.value,
       json_definicion
