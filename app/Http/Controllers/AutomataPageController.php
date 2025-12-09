@@ -51,4 +51,39 @@ class AutomataPageController extends Controller
             'automata' => $automata
         ]);
     }
+    public function edit(Automata $automata)
+    {
+        if ($automata->user_id !== Auth::id()) abort(403);
+
+        return Inertia::render('Automatas/Create', [
+            'automata' => $automata
+        ]);
+    }
+
+    // Lógica de actualización
+    public function update(Request $request, Automata $automata)
+    {
+        if ($automata->user_id !== Auth::id()) abort(403);
+
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'tipo' => 'required|in:DFA,NFA',
+            'json_definicion' => 'required|array',
+        ]);
+
+        $automata->update($validated);
+
+        return Redirect::route('automatas.index')->with('message', 'Autómata actualizado');
+    }
+
+    // Lógica de eliminación
+    public function destroy(Automata $automata)
+    {
+        if ($automata->user_id !== Auth::id()) abort(403);
+        
+        $automata->delete();
+
+        // Inertia maneja esto y refresca la lista automáticamente
+        return Redirect::route('automatas.index');
+    }
 }

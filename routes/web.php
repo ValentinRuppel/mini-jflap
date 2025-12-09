@@ -23,11 +23,12 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/automatas', [AutomataPageController::class, 'index'])->name('automatas.index');
-    Route::get('/automatas/create', [AutomataPageController::class, 'create'])->name('automatas.create'); // Nueva
+    Route::get('/automatas/create', [AutomataPageController::class, 'create'])->name('automatas.create');
     Route::post('/automatas', [AutomataPageController::class, 'store'])->name('automatas.store');
-    // Usa {automata} para que Laravel busque el ID automáticamente
-    Route::get('/automatas/{automata}', [AutomataPageController::class, 'show'])->name('automatas.show');   
+    Route::get('/automatas/{automata}', [AutomataPageController::class, 'show'])->name('automatas.show');
+    Route::get('/automatas/{automata}/edit', [AutomataPageController::class, 'edit'])->name('automatas.edit');
+    Route::put('/automatas/{automata}', [AutomataPageController::class, 'update'])->name('automatas.update');
+    Route::delete('/automatas/{automata}', [AutomataPageController::class, 'destroy'])->name('automatas.destroy');
 });
-
 
 require __DIR__.'/auth.php';

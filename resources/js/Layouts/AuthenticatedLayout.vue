@@ -13,19 +13,15 @@ const showingNavigationDropdown = ref(false);
 <template>
     <div>
         <div class="min-h-screen bg-gray-100">
-            <nav
-                class="border-b border-gray-100 bg-white"
-            >
+<nav class="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
                 <!-- Primary Navigation Menu -->
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
                             <!-- Logo -->
-                            <div class="flex shrink-0 items-center">
+                            <div class="shrink-0 flex items-center">
                                 <Link :href="route('automatas.index')">
-                                    <ApplicationLogo
-                                        class="block h-9 w-auto fill-current text-gray-800"
-                                    />
+                                    <ApplicationLogo class="block h-10 w-auto fill-current text-gray-800" />
                                 </Link>
                             </div>
 
