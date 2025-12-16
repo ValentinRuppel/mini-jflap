@@ -30,10 +30,10 @@ class AutomataPageController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'tipo' => 'required|in:DFA,NFA',
-            'json_definicion' => 'required|array',
-        ]);
+        'nombre' => 'required|string|max:255',
+        'tipo' => 'required|in:DFA,NFA,AP', 
+        'json_definicion' => 'required|array',
+    ]);
 
         $request->user()->automatas()->create($validated);
 

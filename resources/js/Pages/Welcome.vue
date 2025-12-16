@@ -67,7 +67,7 @@ defineProps({
         </main>
 
         <footer class="py-6 text-center text-gray-400 text-sm">
-            Proyecto de Licenciatura en Informática &copy; 2025
+            Proyecto de Licenciatura en Informatica &copy; 2025
         </footer>
     </div>
 </template>

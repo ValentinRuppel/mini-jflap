@@ -30,7 +30,7 @@ import { Link } from '@inertiajs/vue3';
         </div>
 
         <div class="mt-8 text-center text-xs text-gray-400 z-10">
-            &copy; 2025 Facultad de Informática
+            &copy; 2025 Facultad de Ingenieria
         </div>
     </div>
 </template>
