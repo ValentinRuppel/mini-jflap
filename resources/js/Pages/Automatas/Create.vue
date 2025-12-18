@@ -19,17 +19,27 @@
 
                         <div class="mb-4">
                             <label class="font-semibold block mb-1">Tipo:</label>
-                            <select v-model="form.tipo" class="border p-2 rounded w-full">
+                            
+                            <select 
+                                v-model="form.tipo" 
+                                :disabled="isEditing"
+                                class="border p-2 rounded w-full transition-colors"
+                                :class="{ 'bg-gray-100 text-gray-500 cursor-not-allowed': isEditing }"
+                            >
                                 <option value="DFA">DFA (Determinista)</option>
                                 <option value="NFA">NFA (No determinista)</option>
                                 <option value="AP">AP (Autómata de Pila)</option>
                             </select>
-                            <p v-if="form.tipo === 'AP'" class="text-sm text-blue-600 mt-1">
+
+                            <p v-if="isEditing" class="text-xs text-gray-500 mt-1">
+                                El tipo de autómata no se puede cambiar durante la edición.
+                            </p>
+
+                            <p v-if="form.tipo === 'AP' && !isEditing" class="text-sm text-blue-600 mt-1">
                                 Nota: En los Autómatas de Pila definimos qué se saca (Pop) y qué se mete (Push) en la
                                 memoria. Usa 'λ' o deja vacío para lambda.
                             </p>
                         </div>
-
                         <div class="mb-4">
                             <label class="font-semibold block mb-1">Estados (separados por coma):</label>
                             <input v-model="estadosTexto" type="text" class="border p-2 rounded w-full"
@@ -191,36 +201,49 @@ onMounted(() => {
         initApTemp(def.estados, def.alfabeto);
     }
 
-    // Watcher principal para reconstruir estructura si cambian inputs
-    watch([estadosTexto, alfabetoTexto, () => form.tipo], () => {
-        const nuevosEstados = estadosTexto.value.split(',').map(e => e.trim()).filter(Boolean);
-        const nuevoAlfabeto = alfabetoTexto.value.split(',').map(a => a.trim()).filter(Boolean);
-        const nuevasTransiciones = {};
-
-        nuevosEstados.forEach(e => {
-            nuevasTransiciones[e] = {};
-            nuevoAlfabeto.forEach(s => {
-                // Conservar data vieja si existe
-                if (transiciones.value[e] && transiciones.value[e][s] !== undefined) {
-                    nuevasTransiciones[e][s] = transiciones.value[e][s];
-                } else {
-                    // Inicializar según tipo
-                    if (form.tipo === 'DFA') nuevasTransiciones[e][s] = '';
-                    else if (form.tipo === 'NFA') nuevasTransiciones[e][s] = [];
-                    else if (form.tipo === 'AP') nuevasTransiciones[e][s] = []; // AP usa array de objetos
-                }
-            });
-        });
-
-        estados.value = nuevosEstados;
-        alfabeto.value = nuevoAlfabeto;
-        transiciones.value = nuevasTransiciones;
-
-        // Inicializar inputs temporales para AP
-        initApTemp(nuevosEstados, nuevoAlfabeto);
-    });
 });
 
+watch(() => form.tipo, (nuevoTipo, viejoTipo) => {
+    // Evitamos limpiar si es la carga inicial o si no hubo cambio real
+    if (nuevoTipo === viejoTipo) return;
+
+    // Reiniciar formulario (Excepto Nombre)
+    estadosTexto.value = '';
+    alfabetoTexto.value = '';
+    estadoInicial.value = '';
+    estadosFinales.value = [];
+    transiciones.value = {};
+    // La limpieza de apTemp ocurre sola al no haber estados
+});
+
+// 2. WATCHER DE CONSTRUCCIÓN (Cuando cambian los inputs de texto)
+// Nota: Quitamos "() => form.tipo" de este array
+watch([estadosTexto, alfabetoTexto], () => {
+    const nuevosEstados = estadosTexto.value.split(',').map(e => e.trim()).filter(Boolean);
+    const nuevoAlfabeto = alfabetoTexto.value.split(',').map(a => a.trim()).filter(Boolean);
+    const nuevasTransiciones = {};
+
+    nuevosEstados.forEach(e => {
+        nuevasTransiciones[e] = {};
+        nuevoAlfabeto.forEach(s => {
+            // Verificamos si existe data previa válida
+            if (transiciones.value[e] && transiciones.value[e][s] !== undefined) {
+                nuevasTransiciones[e][s] = transiciones.value[e][s];
+            } else {
+                // Inicializar en blanco según el tipo actual
+                if (form.tipo === 'DFA') nuevasTransiciones[e][s] = '';
+                else if (form.tipo === 'NFA') nuevasTransiciones[e][s] = [];
+                else if (form.tipo === 'AP') nuevasTransiciones[e][s] = [];
+            }
+        });
+    });
+
+    estados.value = nuevosEstados;
+    alfabeto.value = nuevoAlfabeto;
+    transiciones.value = nuevasTransiciones;
+
+    initApTemp(nuevosEstados, nuevoAlfabeto);
+});
 function initApTemp(misEstados, misSimbolos) {
     misEstados.forEach(e => {
         misSimbolos.forEach(s => {
