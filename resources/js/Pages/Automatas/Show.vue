@@ -22,17 +22,47 @@
              <Link :href="route('automatas.index')" class="text-sm text-gray-500 hover:text-gray-800">Volver</Link>
         </div>
     </header>
+    
 
     <div class="flex flex-1 overflow-hidden relative">
         <main class="flex-1 relative bg-gray-100/50">
             <div ref="networkContainer" class="w-full h-full outline-none"></div>
-        </main>
+
+            <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-200 z-10 select-none">
+                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Referencias</h3>
+                
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-[#d1fae5] border border-[#2B7CE9] flex items-center justify-center text-xs font-mono text-gray-600 shadow-sm">
+                            qi
+                        </div>
+                        <span class="text-xs font-medium text-gray-600">Estado Inicial</span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white border border-[#2B7CE9] flex items-center justify-center text-xs font-mono text-gray-600 shadow-sm">
+                            qn
+                        </div>
+                        <span class="text-xs font-medium text-gray-600">Estado Normal</span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-white border-[3px] border-[#2B7CE9] flex items-center justify-center text-xs font-bold font-mono text-gray-800 shadow-sm">
+                            qf
+                        </div>
+                        <span class="text-xs font-medium text-gray-600">Estado Final</span>
+                    </div>
+                </div>
+            </div>
+            </main>
 
         <aside class="w-[400px] bg-white border-l border-gray-200 shadow-xl z-10 flex flex-col">
+            
             <div class="p-6 border-b border-gray-100">
                 <h2 class="font-bold text-lg text-gray-800">Simulador</h2>
                 <p class="text-xs text-gray-500">Prueba cadenas en tu {{ automata.tipo }}.</p>
             </div>
+            
 
             <div class="p-6 flex-1 overflow-y-auto">
                 <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100 mb-6">
@@ -56,8 +86,11 @@
                 </div>
             </div>
         </aside>
+        
     </div>
+    
   </div>
+  
 </template>
 
 <script setup>
@@ -74,21 +107,24 @@ const estadosFinalesAlcanzados = ref([]);
 
 // --- EXPORTAR ---
 function exportarJson() {
-    const dataStr = JSON.stringify(props.automata.json_definicion, null, 2);
+    const archivoCompleto = {
+        nombre: props.automata.nombre || 'Automata Sin Nombre',
+        tipo: props.automata.tipo,
+        json_definicion: props.automata.json_definicion
+    };
+
+    const dataStr = JSON.stringify(archivoCompleto, null, 2);
+    
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([dataStr], { type: 'application/json' }));
-    link.download = `${props.automata.nombre}.json`;
+    link.download = `${archivoCompleto.nombre}.json`;
     link.click();
 }
 
-// --- ALGORITMO POTENTE (Soporta DFA, NFA y AP) ---
 function probarCadena() {
     const def = props.automata.json_definicion;
     const cadena = inputCadena.value;
     const tipo = props.automata.tipo;
-    
-    // Configuraciones vivas: { estado, pila, indice_cadena }
-    // En DFA/NFA la pila se ignora. En AP se usa.
     let configuraciones = [
         { estado: def.estado_inicial, pila: [], indice: 0 }
     ];
@@ -96,8 +132,6 @@ function probarCadena() {
     let pasos = 0;
     let aceptado = false;
     estadosFinalesAlcanzados.value = [];
-
-    // Límite de seguridad para evitar bucles infinitos en transiciones Lambda
     const MAX_PASOS = 2000; 
 
     while (configuraciones.length > 0 && pasos < MAX_PASOS) {

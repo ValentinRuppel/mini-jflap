@@ -36,30 +36,58 @@ class AutomataExportController extends Controller
         );
     }
 
-    /** Importar un autómata desde archivo JSON */
-    public function import(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:json,txt',
-        ]);
 
-        $json = json_decode(file_get_contents($request->file('file')), true);
+public function import(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:json,txt',
+    ]);
 
-        if (!$json || !isset($json['json_definicion'])) {
-            return response()->json(['error' => 'Archivo inválido'], 422);
-        }
+    // Leer el contenido del archivo
+    $content = file_get_contents($request->file('file'));
+    $json = json_decode($content, true);
 
-        $automata = Automata::create([
-            'nombre' => $json['nombre'] ?? 'Importado',
-            'tipo' => $json['tipo'] ?? 'DFA',
-            'json_definicion' => $json['json_definicion'],
-            'owner_id' => Auth::id(),
-            'visibility' => 'private',
-        ]);
-
-        return response()->json([
-            'message' => 'Autómata importado con éxito',
-            'automata' => $automata,
-        ], Response::HTTP_CREATED);
+    // Validación básica de JSON
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return response()->json(['error' => 'El archivo no es un JSON válido'], 422);
     }
+
+    // --- LÓGICA HÍBRIDA (La parte importante) ---
+    
+    // Variables por defecto
+    $definicion = null;
+    $tipo = 'DFA'; 
+    $nombre = 'Importado';
+
+    // CASO 1: Es el FORMATO NUEVO (tiene la clave json_definicion)
+    if (isset($json['json_definicion'])) {
+        $definicion = $json['json_definicion'];
+        $tipo = $json['tipo'] ?? 'DFA'; // Aquí captura si es NFA o Pila
+        $nombre = $json['nombre'] ?? 'Importado';
+    } 
+    // CASO 2: Es el FORMATO VIEJO (El JSON es directamente la definición con nodos)
+    elseif (isset($json['nodos']) || isset($json['enlaces'])) {
+        $definicion = $json; // Todo el archivo es la definición
+        $tipo = 'DFA'; // Asumimos DFA por defecto si es viejo
+        $nombre = 'Automata Antiguo';
+    } 
+    // CASO 3: Estructura desconocida
+    else {
+        return response()->json(['error' => 'Archivo inválido: No se reconocen nodos ni enlaces.'], 422);
+    }
+
+    // Crear el autómata en Base de Datos
+    $automata = Automata::create([
+        'nombre' => $nombre,
+        'tipo' => $tipo,
+        'json_definicion' => $definicion, // Laravel lo convertirá a JSON automáticamente si está casteado en el modelo
+        'owner_id' => Auth::id(),
+        'visibility' => 'private',
+    ]);
+
+    return response()->json([
+        'message' => 'Autómata importado con éxito',
+        'automata' => $automata,
+    ], Response::HTTP_CREATED);
+}
 }

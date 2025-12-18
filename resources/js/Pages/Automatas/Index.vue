@@ -162,23 +162,45 @@ function handleFileUpload(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const jsonContent = JSON.parse(e.target.result);
-            if (!jsonContent.estados || !jsonContent.transiciones) {
-                alert('Archivo inválido.');
+            const contenido = JSON.parse(e.target.result);
+            
+            // --- LÓGICA DE DETECCIÓN INTELIGENTE (Frontend) ---
+            let definicionReal;
+            let tipoAutomata = 'DFA';
+            let nombreAutomata = file.name.replace('.json', '');
+
+            // CASO 1: Formato Nuevo (Exportado correctamente con tipo)
+            if (contenido.json_definicion) {
+                definicionReal = contenido.json_definicion;
+                tipoAutomata = contenido.tipo || 'DFA';
+                nombreAutomata = contenido.nombre || nombreAutomata;
+            } 
+            // CASO 2: Formato Viejo (El JSON es la definición pura)
+            else {
+                definicionReal = contenido;
+                // Si es viejo, asumimos DFA
+            }
+
+            // --- VALIDACIÓN ---
+            // Ahora validamos sobre la definición real extraída
+            // Nota: En tu JSON de ejemplo usas "transiciones", asegúrate si es "enlaces" o "transiciones" en tu código gráfico
+            if (!definicionReal.estados || (!definicionReal.transiciones && !definicionReal.enlaces)) {
+                alert('Archivo inválido: No se detecta estructura de autómata.');
                 return;
             }
 
+            // --- ENVÍO AL STORE ---
             router.post(route('automatas.store'), {
-                nombre: file.name.replace('.json', ''),
-                tipo: 'DFA', // Podrías mejorar esto detectando el tipo
-                json_definicion: jsonContent
+                nombre: nombreAutomata,
+                tipo: tipoAutomata, // ¡Ahora sí mandamos NFA o PDA!
+                json_definicion: definicionReal
             });
 
         } catch (error) {
             console.error(error);
-            alert('Error al leer el JSON.');
+            alert('Error al leer el JSON: ' + error.message);
         } finally {
-            event.target.value = '';
+            event.target.value = ''; // Limpiar input
         }
     };
     reader.readAsText(file);
