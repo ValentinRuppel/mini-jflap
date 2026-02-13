@@ -28,7 +28,7 @@ defineProps({
         <main class="flex-1 flex flex-col justify-center items-center text-center px-4 relative z-10 mt-[-50px]">
             
             <div class="mb-6 inline-flex items-center px-3 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-600 text-xs font-medium uppercase tracking-wide">
-                <span>Versión Beta 1.0</span>
+                <span>Versión Beta 2.0</span>
             </div>
 
             <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl">

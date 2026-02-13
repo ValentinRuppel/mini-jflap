@@ -29,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/automatas/{automata}/edit', [AutomataPageController::class, 'edit'])->name('automatas.edit');
     Route::put('/automatas/{automata}', [AutomataPageController::class, 'update'])->name('automatas.update');
     Route::delete('/automatas/{automata}', [AutomataPageController::class, 'destroy'])->name('automatas.destroy');
+    Route::post('/automatas/{automata}/optimizar', [AutomataPageController::class, 'optimize'])->name('automatas.optimize');
 });
 
 require __DIR__.'/auth.php';
