@@ -2,348 +2,255 @@ import sys
 import json
 import random
 import copy
-import time
 import math
-import traceback
+import warnings
+import time
 
-# --- 1. CLASE ORÁCULO UNIVERSAL (DFA / NFA / AP-PILA) ---
+warnings.filterwarnings("ignore")
+
 class AutomataOracle:
     def __init__(self, definicion):
         self.tipo = definicion.get('tipo', 'DFA').upper()
-        self.estados = definicion.get('estados', [])
         self.transiciones = definicion.get('transiciones', {})
         self.estado_inicial = definicion.get('estado_inicial', '')
         self.estados_finales = set(definicion.get('estados_finales', []))
         self.alfabeto = definicion.get('alfabeto', ['0', '1']) 
 
     def simular(self, cadena):
-        if self.tipo == 'AP' or self.tipo == 'PDA':
-            return self.simular_pila(cadena)
-        else:
-            return self.simular_finito(cadena)
+        if self.tipo in ['AP', 'PDA']: return self.simular_pila(cadena)
+        return self.simular_finito(cadena)
 
     def simular_finito(self, cadena):
-        # LÓGICA PARA DFA Y NFA
         estados_actuales = {self.estado_inicial}
-        
         for simbolo in cadena:
-            proximos_estados = set()
-            for estado in estados_actuales:
-                if estado not in self.transiciones: continue
-                
-                transicion = self.transiciones[estado]
-                destinos = None
-
-                # Caso 1: Array posicional ["q1", "q2"]
-                if isinstance(transicion, list):
-                    try:
-                        if simbolo in self.alfabeto:
-                            idx = self.alfabeto.index(simbolo)
-                            if idx < len(transicion):
-                                destinos = transicion[idx]
+            proximos = set()
+            for est in estados_actuales:
+                if est not in self.transiciones: continue
+                rules = self.transiciones[est]
+                dests = []
+                if isinstance(rules, dict): dests = rules.get(simbolo, [])
+                elif isinstance(rules, list):
+                    try: 
+                        idx = self.alfabeto.index(simbolo)
+                        if idx < len(rules): dests = rules[idx]
                     except: pass
-                
-                # Caso 2: Diccionario {"0": "q1", "1": "q2"}
-                elif isinstance(transicion, dict):
-                    destinos = transicion.get(simbolo)
-
-                if destinos:
-                    # Corrección de seguridad: Si por error llega un dict aquí, lo ignoramos para no romper
-                    if isinstance(destinos, list):
-                        # Solo agregamos si los elementos son strings (estados), no dicts
-                        limpios = [d for d in destinos if isinstance(d, str)]
-                        proximos_estados.update(limpios)
-                    elif isinstance(destinos, str):
-                        proximos_estados.add(destinos)
-
-            estados_actuales = proximos_estados
+                if not isinstance(dests, list): dests = [dests]
+                for d in dests:
+                    if isinstance(d, str): proximos.add(d)
+            estados_actuales = proximos
             if not estados_actuales: break 
-
-        for estado in estados_actuales:
-            if estado in self.estados_finales:
-                return True
+        for est in estados_actuales:
+            if est in self.estados_finales: return True
         return False
 
     def simular_pila(self, cadena):
-        # LÓGICA PARA AP (Automata de Pila)
-        # Configuración: (estado_actual, tupla_pila)
         configuraciones = {(self.estado_inicial, ())} 
-        
         for simbolo in cadena:
-            nuevas_configuraciones = set()
-            try:
-                idx = self.alfabeto.index(simbolo)
-            except ValueError:
-                # Si viene un símbolo que no está en el alfabeto, morimos
-                return False
-
-            for estado, pila in configuraciones:
-                if estado not in self.transiciones: continue
-                
-                fila_alfabeto = self.transiciones[estado]
-                if idx >= len(fila_alfabeto): continue
-                
-                movimientos = fila_alfabeto[idx] 
-
-                # Validación extra: movimientos debe ser una lista de dicts
-                if not isinstance(movimientos, list): continue
-
-                for mov in movimientos:
-                    if not isinstance(mov, dict): continue # Ignorar basura
-                    
-                    dest = mov.get('dest')
-                    pop_char = mov.get('pop')
-                    push_char = mov.get('push')
-                    
-                    # LOGICA DE PILA
-                    pila_temp = list(pila)
-                    valido = True
-
-                    # 1. POP
-                    if pop_char != 'λ':
-                        if not pila_temp or pila_temp[-1] != pop_char:
-                            valido = False
-                        else:
-                            pila_temp.pop()
-                    
-                    # 2. PUSH
-                    if valido:
-                        if push_char != 'λ':
-                            pila_temp.append(push_char)
-                        
-                        # Limitamos la profundidad de pila para evitar bucles infinitos en tests
-                        if len(pila_temp) < 50: 
-                            nuevas_configuraciones.add((dest, tuple(pila_temp)))
-
-            configuraciones = nuevas_configuraciones
+            nuevas = set()
+            try: idx = self.alfabeto.index(simbolo)
+            except: return False
+            for est, pila in configuraciones:
+                if est not in self.transiciones: continue
+                rules = self.transiciones[est]
+                if idx >= len(rules): continue
+                moves = rules[idx]
+                if not isinstance(moves, list): continue
+                for mov in moves:
+                    if not isinstance(mov, dict): continue
+                    pila_new = list(pila)
+                    if mov.get('pop') != 'λ':
+                        if not pila_new or pila_new[-1] != mov['pop']: continue
+                        pila_new.pop()
+                    if mov.get('push') != 'λ': pila_new.append(mov['push'])
+                    if len(pila_new) < 20: nuevas.add((mov['dest'], tuple(pila_new)))
+            configuraciones = nuevas
             if not configuraciones: return False
-
-        for estado, pila in configuraciones:
-            if estado in self.estados_finales:
-                # En muchos AP se pide pila vacía también, pero aquí asumimos aceptación por estado final
-                return True
+        for est, _ in configuraciones:
+            if est in self.estados_finales: return True
         return False
 
-    def generar_test_set(self, cantidad=100):
-        dataset = []
+    def generar_dataset(self, cantidad=100):
+        data = []
+        data.append({'input': "", 'label': self.simular("")})
+        for c in self.alfabeto: data.append({'input': c, 'label': self.simular(c)})
         intentos = 0
-        count_true = 0
-        count_false = 0
-        limit_per_class = cantidad * 0.6 
-
-        while len(dataset) < cantidad and intentos < cantidad * 15:
-            largo = random.randint(0, 10) # Cadenas más cortas para Pila (es costoso)
-            cadena = "".join(random.choice(self.alfabeto) for _ in range(largo))
-            
-            label = self.simular(cadena)
-            
-            agregar = False
-            if label and count_true < limit_per_class:
-                agregar = True
-                count_true += 1
-            elif not label and count_false < limit_per_class:
-                agregar = True
-                count_false += 1
-            elif intentos > cantidad * 8:
-                agregar = True
-
-            if agregar:
-                if not any(d['input'] == cadena for d in dataset):
-                    dataset.append({'input': cadena, 'label': label})
-            
+        while len(data) < cantidad and intentos < cantidad * 5:
+            l = random.randint(1, 10)
+            s = "".join(random.choice(self.alfabeto) for _ in range(l))
+            if not any(d['input'] == s for d in data):
+                data.append({'input': s, 'label': self.simular(s)})
             intentos += 1
-            
-        return dataset
+        return data
 
-# --- CLASE BASE DE OPTIMIZACIÓN ---
+# --- CLASE BASE ---
 class BaseOptimizer:
-    def __init__(self, original_json, test_set):
-        self.original = original_json
-        self.test_set = test_set
-        self.alfabeto = original_json.get('alfabeto', ['0', '1'])
-        self.tipo = original_json.get('tipo', 'DFA').upper()
+    def __init__(self, original):
+        self.original = original
+        self.oracle = AutomataOracle(original)
+        self.dataset = self.oracle.generar_dataset(200) # 200 casos de prueba
 
-    def evaluar_fitness(self, automata):
-        oracle = AutomataOracle(automata)
-        aciertos = 0
-        for caso in self.test_set:
-            if oracle.simular(caso['input']) == caso['label']:
-                aciertos += 1
-        
-        precision = aciertos / len(self.test_set)
-        
-        try:
-            n_estados = len(automata['estados'])
-        except: n_estados = 1
-        
-        if n_estados == 0: return 0
-        
-        fitness = (precision * 2000) + (100 / n_estados)
-        return fitness
+    def validar(self, candidato):
+        # Verifica si el candidato se comporta IGUAL al original
+        oraculo_cand = AutomataOracle(candidato)
+        for caso in self.dataset:
+            if oraculo_cand.simular(caso['input']) != caso['label']:
+                return False
+        return True
+
+    def fusionar_estados(self, automata, q1, q2):
+        # Fusión y limpieza (DFA y NFA)
+        nuevo = copy.deepcopy(automata)
+        trans = nuevo['transiciones']
+        def replace(obj):
+            if isinstance(obj, list): return [replace(x) for x in obj]
+            if isinstance(obj, dict): return {k: replace(v) for k,v in obj.items()}
+            if obj == q2: return q1
+            return obj
+
+        for k in list(trans.keys()): trans[k] = replace(trans[k])
+        # Limpieza de duplicados NFA
+        for origen, reglas in trans.items():
+            if isinstance(reglas, dict):
+                for entrada, destinos in reglas.items():
+                    if isinstance(destinos, list):
+                        if len(destinos) > 1 and all(isinstance(x, str) for x in destinos):
+                            reglas[entrada] = sorted(list(set(destinos)))
+                        elif len(destinos) > 1 and all(isinstance(x, dict) for x in destinos):
+                            try:
+                                unique = set(json.dumps(x, sort_keys=True) for x in destinos)
+                                reglas[entrada] = [json.loads(x) for x in unique]
+                            except: pass
+        if nuevo['estado_inicial'] == q2: nuevo['estado_inicial'] = q1
+        if q2 in nuevo['estados_finales']:
+            nuevo['estados_finales'] = list(set(nuevo['estados_finales'] + [q1]))
+            if q2 in nuevo['estados_finales']: nuevo['estados_finales'].remove(q2)
+        if q2 in nuevo['estados']: nuevo['estados'].remove(q2)
+        if q2 in trans: del trans[q2]
+        return nuevo
 
     def generar_vecino(self, individuo):
-        mutante = copy.deepcopy(individuo)
-        estados = mutante['estados']
-        if len(estados) < 2: return mutante 
+        estados = individuo['estados']
+        if len(estados) < 2: return None
+        qA, qB = random.sample(estados, 2)
+        return self.fusionar_estados(individuo, qA, qB)
 
-        qA = random.choice(estados)
-        qB = random.choice(estados)
-        while qA == qB:
-            qB = random.choice(estados)
-
-        # FUSIÓN
-        transiciones = mutante['transiciones']
-        es_pila = (self.tipo == 'AP' or self.tipo == 'PDA')
-
-        for estado_origen, trans_data in transiciones.items():
-            
-            # CASO PILA
-            if es_pila:
-                if isinstance(trans_data, list):
-                    for lista_movimientos in trans_data:
-                        if isinstance(lista_movimientos, list):
-                            for mov in lista_movimientos:
-                                if isinstance(mov, dict) and mov.get('dest') == qB:
-                                    mov['dest'] = qA
-            
-            # CASO DFA/NFA
-            elif isinstance(trans_data, list): 
-                for i in range(len(trans_data)):
-                    val = trans_data[i]
-                    if isinstance(val, list): # NFA
-                        trans_data[i] = [qA if x == qB else x for x in val]
-                    elif val == qB: 
-                        trans_data[i] = qA
-            
-            elif isinstance(trans_data, dict):
-                for key in trans_data:
-                    target = trans_data[key]
-                    if isinstance(target, list):
-                        trans_data[key] = [qA if x == qB else x for x in target]
-                    elif target == qB:
-                        trans_data[key] = qA
-        
-        if mutante['estado_inicial'] == qB:
-            mutante['estado_inicial'] = qA
-
-        if qB in mutante['estados_finales']:
-            if qA not in mutante['estados_finales']:
-                mutante['estados_finales'].append(qA)
-
-        mutante['estados'].remove(qB)
-        if qB in mutante['estados_finales']:
-            mutante['estados_finales'].remove(qB)
-        if qB in transiciones:
-            del transiciones[qB]
-            
-        return mutante
-
-# --- ALGORITMOS ---
+# --- OPCIÓN 1: ALGORITMO GENÉTICO ---
 class GeneticOptimizer(BaseOptimizer):
-    def ejecutar(self, generaciones=50, poblacion_size=20):
-        poblacion = [copy.deepcopy(self.original) for _ in range(poblacion_size)]
-        mejor_fitness = -1
-        mejor_individuo = self.original
+    def ejecutar(self):
+        poblacion = [self.original] # Iniciamos con clones
+        mejor_global = self.original
+        generaciones = 10  # Cantidad de ciclos
+        poblacion_size = 8 # Individuos por ciclo
 
         for gen in range(generaciones):
             nueva_poblacion = []
-            if mejor_fitness > 0: nueva_poblacion.append(mejor_individuo)
+            
+            # Elitismo: El mejor siempre pasa
+            nueva_poblacion.append(mejor_global)
 
+            # Llenar el resto con mutaciones
             while len(nueva_poblacion) < poblacion_size:
                 padre = random.choice(poblacion)
                 hijo = self.generar_vecino(padre)
-                nueva_poblacion.append(hijo)
-            
+                
+                # En Genético, si el hijo es inválido (rompe el lenguaje), muere.
+                if hijo and self.validar(hijo):
+                    nueva_poblacion.append(hijo)
+                else:
+                    nueva_poblacion.append(padre)
             poblacion = nueva_poblacion
-            for ind in poblacion:
-                fit = self.evaluar_fitness(ind)
-                if fit > mejor_fitness:
-                    mejor_fitness = fit
-                    mejor_individuo = copy.deepcopy(ind)
-        return mejor_individuo, mejor_fitness
+            # Evaluar: buscamos el que tenga MENOS estados
+            poblacion.sort(key=lambda x: len(x['estados']))
+            mejor_actual = poblacion[0]
+            
+            if len(mejor_actual['estados']) < len(mejor_global['estados']):
+                mejor_global = mejor_actual
 
-class SimulatedAnnealingOptimizer(BaseOptimizer):
-    def ejecutar(self, temperatura_inicial=1000, alpha=0.95):
-        actual = copy.deepcopy(self.original)
-        fitness_actual = self.evaluar_fitness(actual)
-        mejor_global = actual
-        fitness_mejor = fitness_actual
-        T = temperatura_inicial
+        return mejor_global
+
+# --- OPCIÓN 2: RECOCIDO SIMULADO (SIMULATED ANNEALING) ---
+class AnnealingOptimizer(BaseOptimizer):
+    def ejecutar(self):
+        actual = self.original
+        mejor = self.original
+        T = 100.0   # Temperatura inicial
+        alpha = 0.9 # Enfriamiento
         
         while T > 1:
             vecino = self.generar_vecino(actual)
-            fitness_vecino = self.evaluar_fitness(vecino)
-            delta = fitness_vecino - fitness_actual
             
-            if delta > 0:
+            if not vecino: break # No se puede reducir más
+            if not self.validar(vecino):
+                T *= alpha
+                continue
+
+            # Costo = Cantidad de estados
+            costo_actual = len(actual['estados'])
+            costo_vecino = len(vecino['estados'])
+            delta = costo_vecino - costo_actual
+
+            # Si mejora (delta < 0), aceptamos siempre
+            if delta < 0:
                 actual = vecino
-                fitness_actual = fitness_vecino
-                if fitness_vecino > fitness_mejor:
-                    mejor_global = vecino
-                    fitness_mejor = fitness_vecino
+                if len(actual['estados']) < len(mejor['estados']):
+                    mejor = actual
             else:
-                probabilidad = math.exp(delta / T)
-                if random.random() < probabilidad:
+                # Si empeora o es igual, aceptamos con probabilidad (Boltzmann)
+                prob = math.exp(-delta / T)
+                if random.random() < prob:
                     actual = vecino
-                    fitness_actual = fitness_vecino
-            T = T * alpha
-        return mejor_global, fitness_mejor
+            
+            T *= alpha
+            
+        return mejor
 
 # --- MAIN ---
 def main():
     try:
-        if len(sys.argv) < 2: return
-        data = json.loads(sys.argv[1])
-        
-        # 1. RECUPERACIÓN INTELIGENTE DE DATOS
-        automata_wrapper = data.get('automata', {})
-        definicion = automata_wrapper.get('json_definicion', {})
-        
-        # Si no vino dentro de 'automata', quizás vino plano
-        if not definicion: 
-            definicion = data.get('json_definicion', data)
-            tipo_externo = data.get('tipo', 'DFA')
-        else:
-            tipo_externo = automata_wrapper.get('tipo', 'DFA')
-
-        # >>> CORRECCIÓN CRUCIAL <<<
-        # Inyectamos el 'tipo' dentro de la definición para que el Oráculo lo vea
-        if 'tipo' not in definicion:
-            definicion['tipo'] = tipo_externo
-            
-        algoritmo = data.get('algoritmo', 'genetico')
-
-        # 2. Oráculo
-        oracle = AutomataOracle(definicion)
-        test_set = oracle.generar_test_set(cantidad=100)
-
-        # 3. Selección de Algoritmo
-        if algoritmo == 'hill_climbing' or algoritmo == 'simulated_annealing':
-            optimizer = SimulatedAnnealingOptimizer(definicion, test_set)
-        else:
-            optimizer = GeneticOptimizer(definicion, test_set)
-        
-        # 4. Ejecución
         start_time = time.time()
-        mejor_automata, mejor_score = optimizer.ejecutar()
-        end_time = time.time()
+        input_data = sys.stdin.read().strip()
+        if not input_data and len(sys.argv) > 1: input_data = sys.argv[1]
+        if not input_data: return
 
-        # 5. Respuesta
-        respuesta = {
-            "mensaje": "Optimización finalizada",
-            "algoritmo_usado": algoritmo,
-            "tiempo_ejecucion": round(end_time - start_time, 4),
-            "score_final": round(mejor_score, 2),
-            "estados_originales": len(definicion['estados']),
-            "estados_finales": len(mejor_automata['estados']),
-            "test_set_muestras": len(test_set),
-            "automata_optimizado": mejor_automata 
-        }
-        print(json.dumps(respuesta))
+        data = json.loads(input_data)
+        definicion = data.get('json_definicion', data.get('automata', data))
+        
+        # LEER ALGORITMO ELEGIDO
+        algoritmo_elegido = data.get('algoritmo', 'genetico') # default genético
+
+        if 'tipo' not in definicion: definicion['tipo'] = data.get('tipo', 'DFA')
+
+        optimizer = None
+        if algoritmo_elegido == 'recocido':
+            optimizer = AnnealingOptimizer(definicion)
+        else:
+            optimizer = GeneticOptimizer(definicion)
+        
+        mejor_automata = optimizer.ejecutar()
+        end_time = time.time()
+        duration = round(end_time - start_time, 4)
+        n_antes = len(definicion['estados'])
+        n_despues = len(mejor_automata['estados'])
+        reduccion = 0
+        if n_antes > 0:
+            reduccion = round(((n_antes - n_despues) / n_antes) * 100, 1)
+
+        # Respuesta estructurada
+        print(json.dumps({
+            "success": True,
+            "automata": mejor_automata,
+            "reporte": {
+                "algoritmo": algoritmo_elegido,
+                "tiempo_seg": duration,
+                "estados_iniciales": n_antes,
+                "estados_finales": n_despues,
+                "reduccion_porcentaje": reduccion,
+                "mensaje": f"Se redujeron {n_antes - n_despues} estados en {duration}s."
+            }
+        }))
 
     except Exception as e:
-        # En caso de error, devolvemos el traceback para depurar fácil en Postman
-        print(json.dumps({"error": str(e), "trace": traceback.format_exc()}))
+        print(json.dumps({"success": False, "message": str(e)}))
 
 if __name__ == "__main__":
     main()
