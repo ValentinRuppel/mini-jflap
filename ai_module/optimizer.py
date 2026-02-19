@@ -82,127 +82,227 @@ class AutomataOracle:
             intentos += 1
         return data
 
-# --- CLASE BASE ---
 class BaseOptimizer:
     def __init__(self, original):
-        self.original = original
-        self.oracle = AutomataOracle(original)
-        self.dataset = self.oracle.generar_dataset(200) # 200 casos de prueba
+        # 1. Normalizamos el autómata antes de hacer cualquier cosa
+        self.original = self.normalizar_transiciones(original)
+        
+        # 2. Iniciamos el Oráculo con la versión ya normalizada
+        self.oracle = AutomataOracle(self.original)
+        self.dataset = self.oracle.generar_dataset(300)
+
+    def fitness(self, candidato):
+        """
+        Función Monoobjetivo: f(A) = Cantidad de estados.
+        Restricción rígida: El lenguaje debe ser idéntico.
+        """
+        if not self.validar(candidato):
+            return 999999  # Penalización masiva (Infinito práctico)
+        return len(candidato['estados'])
 
     def validar(self, candidato):
-        # Verifica si el candidato se comporta IGUAL al original
-        oraculo_cand = AutomataOracle(candidato)
+        cand_oracle = AutomataOracle(candidato)
         for caso in self.dataset:
-            if oraculo_cand.simular(caso['input']) != caso['label']:
+            if cand_oracle.simular(caso['input']) != caso['label']:
                 return False
         return True
 
-    def fusionar_estados(self, automata, q1, q2):
-        # Fusión y limpieza (DFA y NFA)
-        nuevo = copy.deepcopy(automata)
-        trans = nuevo['transiciones']
-        def replace(obj):
-            if isinstance(obj, list): return [replace(x) for x in obj]
-            if isinstance(obj, dict): return {k: replace(v) for k,v in obj.items()}
-            if obj == q2: return q1
-            return obj
+    def mutar_fusion(self, automata):
+        """ Movimiento de mejora: reduce estados. """
+        if len(automata['estados']) < 2: return automata
+        q1, q2 = random.sample(automata['estados'], 2)
+        return self.fusionar_estados(automata, q1, q2)
 
-        for k in list(trans.keys()): trans[k] = replace(trans[k])
-        # Limpieza de duplicados NFA
-        for origen, reglas in trans.items():
-            if isinstance(reglas, dict):
-                for entrada, destinos in reglas.items():
-                    if isinstance(destinos, list):
-                        if len(destinos) > 1 and all(isinstance(x, str) for x in destinos):
-                            reglas[entrada] = sorted(list(set(destinos)))
-                        elif len(destinos) > 1 and all(isinstance(x, dict) for x in destinos):
-                            try:
-                                unique = set(json.dumps(x, sort_keys=True) for x in destinos)
-                                reglas[entrada] = [json.loads(x) for x in unique]
-                            except: pass
-        if nuevo['estado_inicial'] == q2: nuevo['estado_inicial'] = q1
-        if q2 in nuevo['estados_finales']:
-            nuevo['estados_finales'] = list(set(nuevo['estados_finales'] + [q1]))
-            if q2 in nuevo['estados_finales']: nuevo['estados_finales'].remove(q2)
-        if q2 in nuevo['estados']: nuevo['estados'].remove(q2)
-        if q2 in trans: del trans[q2]
+    def mutar_split(self, automata):
+        """ Movimiento de exploración: aumenta estados (para SA). """
+        nuevo = copy.deepcopy(automata)
+        if not nuevo['estados']: return nuevo
+        q_target = random.choice(nuevo['estados'])
+        nuevo_nombre = f"s{len(nuevo['estados'])}n"
+        nuevo['estados'].append(nuevo_nombre)
+        # Copiamos transiciones del original al nuevo para mantener coherencia inicial
+        if q_target in nuevo['transiciones']:
+            nuevo['transiciones'][nuevo_nombre] = copy.deepcopy(nuevo['transiciones'][q_target])
         return nuevo
 
-    def generar_vecino(self, individuo):
-        estados = individuo['estados']
-        if len(estados) < 2: return None
-        qA, qB = random.sample(estados, 2)
-        return self.fusionar_estados(individuo, qA, qB)
+    def fusionar_estados(self, automata, q1, q2):
+        # ... (Tu lógica de fusión original optimizada)
+        nuevo = copy.deepcopy(automata)
+        trans = nuevo['transiciones']
+        
+        def replace_state(obj):
+            if isinstance(obj, list): return [replace_state(x) for x in obj]
+            if isinstance(obj, dict): return {k: replace_state(v) for k,v in obj.items()}
+            return q1 if obj == q2 else obj
 
-# --- OPCIÓN 1: ALGORITMO GENÉTICO ---
-class GeneticOptimizer(BaseOptimizer):
-    def ejecutar(self):
-        poblacion = [self.original] # Iniciamos con clones
-        mejor_global = self.original
-        generaciones = 10  # Cantidad de ciclos
-        poblacion_size = 8 # Individuos por ciclo
+        for k in list(trans.keys()):
+            trans[k] = replace_state(trans[k])
+        
+        if nuevo['estado_inicial'] == q2: nuevo['estado_inicial'] = q1
+        if q2 in nuevo['estados_finales']:
+            if q1 not in nuevo['estados_finales']: nuevo['estados_finales'].append(q1)
+            nuevo['estados_finales'].remove(q2)
+        
+        if q2 in nuevo['estados']: nuevo['estados'].remove(q2)
+        if q2 in trans:
+            # Transferir transiciones de q2 a q1 si q1 no las tenía (importante para NFA/AP)
+            del trans[q2]
+        return nuevo
+    
+    def mutar_cruce(self, padre1, padre2):
+        """
+        Operador de Crossover: Combina la topología del padre1 con las 
+        transiciones del padre2, asegurando coherencia estructural.
+        """
+        hijo = copy.deepcopy(padre1)
+        estados_p1 = hijo['estados']
+        estados_p2 = padre2['estados']
 
-        for gen in range(generaciones):
-            nueva_poblacion = []
+        # 1. Intercambio de material genético (Transiciones)
+        for estado in estados_p1:
+            # Si el estado existe en ambos padres, 50% de prob de heredar la lógica del Padre 2
+            if estado in estados_p2 and random.random() > 0.5:
+                if estado in padre2['transiciones']:
+                    hijo['transiciones'][estado] = copy.deepcopy(padre2['transiciones'][estado])
+                    
+                    # Limpieza táctica: Evitar transiciones duplicadas ("doble el A")
+                    if isinstance(hijo['transiciones'][estado], dict):
+                        for simbolo, destinos in hijo['transiciones'][estado].items():
+                            if isinstance(destinos, list):
+                                hijo['transiciones'][estado][simbolo] = list(set(destinos))
+
+        # 2. Fase de Reparación (Crucial para no romper el programa)
+        # Si el Padre 2 introdujo una transición hacia un estado que el Hijo no tiene,
+        # reescribimos ese destino hacia un "estado seguro" (ej: el estado actual o el inicial).
+        for origen, reglas in list(hijo['transiciones'].items()):
+            if isinstance(reglas, dict):
+                for simbolo, destinos in list(reglas.items()):
+                    if isinstance(destinos, list):
+                        destinos_validos = [d for d in destinos if d in estados_p1]
+                        hijo['transiciones'][origen][simbolo] = destinos_validos
+                    elif isinstance(destinos, str) and destinos not in estados_p1:
+                        hijo['transiciones'][origen][simbolo] = origen # Loop local seguro
+
+        return hijo
+    def normalizar_transiciones(self, automata):
+        """
+        Convierte cualquier formato de transiciones (listas por índice o diccionarios parciales)
+        en un contrato estricto: { estado_origen: { simbolo: [estado_destino_1, ...] } }
+        """
+        norm_automata = copy.deepcopy(automata)
+        trans_originales = norm_automata.get('transiciones', {})
+        alfabeto = norm_automata.get('alfabeto', [])
+        
+        trans_normalizadas = {}
+        
+        for estado, reglas in trans_originales.items():
+            trans_normalizadas[estado] = {}
             
-            # Elitismo: El mejor siempre pasa
-            nueva_poblacion.append(mejor_global)
+            # Si viene del frontend como diccionario
+            if isinstance(reglas, dict):
+                for simbolo, destinos in reglas.items():
+                    if not isinstance(destinos, list): destinos = [destinos]
+                    trans_normalizadas[estado][simbolo] = destinos
+                    
+            # Si viene del frontend como array (lista de listas/strings indexada por el alfabeto)
+            elif isinstance(reglas, list):
+                for idx, destinos in enumerate(reglas):
+                    if idx < len(alfabeto):
+                        simbolo = alfabeto[idx]
+                        if not isinstance(destinos, list): destinos = [destinos]
+                        # Filtramos vacíos
+                        destinos_validos = [d for d in destinos if d] 
+                        if destinos_validos:
+                            trans_normalizadas[estado][simbolo] = destinos_validos
 
-            # Llenar el resto con mutaciones
-            while len(nueva_poblacion) < poblacion_size:
-                padre = random.choice(poblacion)
-                hijo = self.generar_vecino(padre)
-                
-                # En Genético, si el hijo es inválido (rompe el lenguaje), muere.
-                if hijo and self.validar(hijo):
-                    nueva_poblacion.append(hijo)
-                else:
-                    nueva_poblacion.append(padre)
-            poblacion = nueva_poblacion
-            # Evaluar: buscamos el que tenga MENOS estados
-            poblacion.sort(key=lambda x: len(x['estados']))
-            mejor_actual = poblacion[0]
-            
-            if len(mejor_actual['estados']) < len(mejor_global['estados']):
-                mejor_global = mejor_actual
+        norm_automata['transiciones'] = trans_normalizadas
+        return norm_automata
+    
+    def limpiar_duplicados(self, automata):
+        """
+        Elimina destinos redundantes para que el frontend no dibuje etiquetas dobles.
+        """
+        limpio = copy.deepcopy(automata)
+        transiciones = limpio.get('transiciones', {})
+        
+        for estado, reglas in transiciones.items():
+            if isinstance(reglas, dict):
+                for simbolo, destinos in reglas.items():
+                    if isinstance(destinos, list):
+                        # Solo procesamos si los destinos son strings (nombres de estados)
+                        if all(isinstance(x, str) for x in destinos):
+                            # list(set()) elimina los duplicados automáticamente
+                            transiciones[estado][simbolo] = sorted(list(set(destinos)))
+                            
+        return limpio
 
-        return mejor_global
-
-# --- OPCIÓN 2: RECOCIDO SIMULADO (SIMULATED ANNEALING) ---
+# --- TRAYECTORIA: SIMULATED ANNEALING ---
 class AnnealingOptimizer(BaseOptimizer):
     def ejecutar(self):
         actual = self.original
         mejor = self.original
-        T = 100.0   # Temperatura inicial
-        alpha = 0.9 # Enfriamiento
-        
-        while T > 1:
-            vecino = self.generar_vecino(actual)
-            
-            if not vecino: break # No se puede reducir más
-            if not self.validar(vecino):
-                T *= alpha
-                continue
+        t = 100.0
+        alfa = 0.95
 
-            # Costo = Cantidad de estados
-            costo_actual = len(actual['estados'])
-            costo_vecino = len(vecino['estados'])
-            delta = costo_vecino - costo_actual
-
-            # Si mejora (delta < 0), aceptamos siempre
-            if delta < 0:
-                actual = vecino
-                if len(actual['estados']) < len(mejor['estados']):
-                    mejor = actual
+        while t > 0.1:
+            # En SA, el vecino puede ser mejor O peor
+            tipo_mutacion = random.random()
+            if tipo_mutacion > 0.3:
+                vecino = self.mutar_fusion(actual)
             else:
-                # Si empeora o es igual, aceptamos con probabilidad (Boltzmann)
-                prob = math.exp(-delta / T)
-                if random.random() < prob:
-                    actual = vecino
+                vecino = self.mutar_split(actual)
             
-            T *= alpha
+            f_actual = self.fitness(actual)
+            f_vecino = self.fitness(vecino)
             
+            delta = f_vecino - f_actual
+
+            # Si mejora (delta < 0) o por probabilidad de Boltzmann
+            if delta < 0 or random.random() < math.exp(-delta / t):
+                actual = vecino
+                if self.fitness(actual) < self.fitness(mejor):
+                    mejor = actual
+            
+            t *= alfa
+        mejor = self.limpiar_duplicados(mejor)
         return mejor
+
+# --- POBLACIONAL: ALGORITMO GENÉTICO ---
+class GeneticOptimizer(BaseOptimizer):
+    def ejecutar(self):
+        poblacion = [copy.deepcopy(self.original) for _ in range(10)]
+        mejor_global = self.original
+        
+        for gen in range(20):
+            # 1. Evaluación y Ordenamiento
+            poblacion.sort(key=lambda x: self.fitness(x))
+            
+            if self.fitness(poblacion[0]) < self.fitness(mejor_global):
+                mejor_global = poblacion[0]
+
+            # 2. Selección y Nueva Generación (Elitismo)
+            nueva_gen = poblacion[:2] 
+            
+            # 3. Cruzamiento y Mutación
+            while len(nueva_gen) < 10:
+                padreA = random.choice(poblacion[:5]) # Torneo simple: elegimos de los mejores
+                
+                # 70% de probabilidad de Cruzamiento
+                if random.random() < 0.7:
+                    padreB = random.choice(poblacion[:5])
+                    hijo = self.mutar_cruce(padreA, padreB)
+                else:
+                    hijo = copy.deepcopy(padreA)
+
+                # 30% de probabilidad de Mutación (Fusión) sobre el hijo resultante
+                if random.random() < 0.3:
+                    hijo = self.mutar_fusion(hijo)
+                
+                nueva_gen.append(hijo)
+                
+            poblacion = nueva_gen
+        mejor_global = self.limpiar_duplicados(mejor_global)
+        return mejor_global
 
 # --- MAIN ---
 def main():
@@ -221,7 +321,7 @@ def main():
         if 'tipo' not in definicion: definicion['tipo'] = data.get('tipo', 'DFA')
 
         optimizer = None
-        if algoritmo_elegido == 'recocido':
+        if algoritmo_elegido == 'sa':
             optimizer = AnnealingOptimizer(definicion)
         else:
             optimizer = GeneticOptimizer(definicion)

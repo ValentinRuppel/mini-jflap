@@ -42,7 +42,7 @@ class AutomataPageController extends Controller
         if ($automata->user_id !== Auth::id()) abort(403);
         // Validar input (Recibir 'algoritmo')
         $request->validate([
-            'algoritmo' => 'required|in:genetico,recocido'
+            'algoritmo' => 'required|in:genetico,sa'
         ]);
         // Empaquetar todo para Python
         $payload = json_encode([
