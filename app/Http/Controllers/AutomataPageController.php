@@ -16,7 +16,7 @@ class AutomataPageController extends Controller
     {
         $automatas = Automata::where('user_id', Auth::id())
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(9);
 
         return Inertia::render('Automatas/Index', [
             'automatas' => $automatas
@@ -73,12 +73,13 @@ class AutomataPageController extends Controller
                 'user_id' => Auth::id(),
                 'nombre' => $automata->nombre . ' (' . ucfirst($request->algoritmo) . ')',
                 'tipo' => $automata->tipo,
-                'json_definicion' => $result['automata']
+                'json_definicion' => $result['automata'],
+                'is_optimized' => true
             ]);
             return Redirect::route('automatas.show', $newAutomata)
                 ->with('reporte_ia', $result['reporte']);
         } catch (ProcessFailedException $exception) {
-            return back()->withErrors(['error' => 'Error crítico.']);
+        return back()->withErrors(['error' => 'Error crítico.']);
         }
     }
     public function show(Automata $automata)

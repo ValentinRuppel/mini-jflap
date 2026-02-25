@@ -100,7 +100,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="p-4 border-t border-gray-100 bg-gray-50 z-20">
+
+<div v-if="!automata.is_optimized" class="p-4 border-t border-gray-100 bg-gray-50 z-20">
                     <div class="bg-white border border-purple-100 rounded-2xl p-4 shadow-sm">
                         <div class="flex items-center gap-2 mb-3">
                             <span class="bg-purple-100 text-purple-600 p-1.5 rounded-lg">
@@ -151,6 +152,7 @@
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-bounce-in">
 
+                
                 <div :class="reporteModal.algoritmo === 'genetico' ? 'from-blue-600 to-cyan-500' : 'from-orange-500 to-red-500'"
                     class="bg-gradient-to-r p-6 text-white text-center">
                     <div class="text-5xl mb-2">
