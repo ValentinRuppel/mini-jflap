@@ -100,7 +100,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="p-4 border-t border-gray-100 bg-gray-50 z-20">
+
+<div v-if="!automata.is_optimized" class="p-4 border-t border-gray-100 bg-gray-50 z-20">
                     <div class="bg-white border border-purple-100 rounded-2xl p-4 shadow-sm">
                         <div class="flex items-center gap-2 mb-3">
                             <span class="bg-purple-100 text-purple-600 p-1.5 rounded-lg">
@@ -122,12 +123,24 @@
                             <select v-model="algoritmoSeleccionado"
                                 class="w-full text-xs border-gray-200 rounded-lg bg-gray-50 focus:border-purple-500 focus:ring-purple-500">
                                 <option value="genetico">🧬 Algoritmo Genético</option>
-                                <option value="recocido">🔥 Recocido Simulado</option>
+                                <option value="sa">🔥 Simulated Annealing</option>
                             </select>
                         </div>
 
                         <button @click="optimizarConIA" :disabled="procesandoIA"
-                            class="w-full relative overflow-hidden group bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-wait">
+                            class="w-full relative overflow-hidden group bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-wait flex justify-center items-center">
+                            <span v-if="!procesandoIA">Optimizar Autómata</span>
+                            <span v-else class="flex items-center gap-2">
+                                <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg"
+                                    fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                Procesando...
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -139,6 +152,7 @@
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-bounce-in">
 
+                
                 <div :class="reporteModal.algoritmo === 'genetico' ? 'from-blue-600 to-cyan-500' : 'from-orange-500 to-red-500'"
                     class="bg-gradient-to-r p-6 text-white text-center">
                     <div class="text-5xl mb-2">
@@ -146,7 +160,7 @@
                     </div>
                     <h2 class="text-2xl font-bold">Optimización Completada</h2>
                     <p class="text-white/80 text-sm uppercase tracking-widest font-bold">
-                        {{ reporteModal.algoritmo === 'genetico' ? 'Algoritmo Genético' : 'Recocido Simulado' }}
+                        {{ reporteModal.algoritmo === 'genetico' ? 'Algoritmo Genético' : 'Simulated Annealing' }}
                     </p>
                 </div>
 
@@ -159,7 +173,7 @@
                         <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                             <p class="text-xs text-gray-500 uppercase">Reducción</p>
                             <p class="text-xl font-mono font-bold text-green-600">-{{ reporteModal.reduccion_porcentaje
-                                }}%</p>
+                            }}%</p>
                         </div>
                     </div>
 
@@ -301,7 +315,7 @@ function probarCadena() {
                     let nuevaPila = [...pila];
 
                     if (!popRequerido || popRequerido === 'λ') {
-                        pilaValida = true; 
+                        pilaValida = true;
                     } else if (popRequerido === tope) {
                         pilaValida = true;
                         nuevaPila.pop();

@@ -15,7 +15,7 @@ defineProps({
         <nav class="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto w-full z-20">
             <div class="font-bold text-2xl tracking-tighter text-blue-900 flex items-center gap-2">
                 <span class="w-3 h-3 bg-blue-600 rounded-full"></span>
-                Mini-JFLAP
+                FLEXA
             </div>
             <div v-if="canLogin" class="flex gap-4">
                 <Link v-if="$page.props.auth.user" :href="route('automatas.index')" 

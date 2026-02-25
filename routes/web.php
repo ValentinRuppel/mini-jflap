@@ -5,7 +5,11 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\AutomataPageController;
+use Illuminate\Support\Facades\Auth;
 Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('automatas.index'); 
+    }
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),

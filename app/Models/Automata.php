@@ -15,6 +15,7 @@ class Automata extends Model
         'nombre',
         'tipo',
         'json_definicion',
+        'is_optimized',
     ];
 
     protected $casts = [
