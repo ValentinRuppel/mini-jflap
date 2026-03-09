@@ -69,16 +69,42 @@ class AutomataOracle:
             if est in self.estados_finales: return True
         return False
 
-    def generar_dataset(self, cantidad=100):
+
+    def generar_dataset(self, cantidad=300):
         data = []
-        data.append({'input': "", 'label': self.simular("")})
-        for c in self.alfabeto: data.append({'input': c, 'label': self.simular(c)})
+        cadenas_vistas = set()
+        def agregar(cadena):
+            if cadena not in cadenas_vistas:
+                data.append({'input': cadena, 'label': self.simular(cadena)})
+                cadenas_vistas.add(cadena)
+        agregar("")
+        for c in self.alfabeto: agregar(c)
+        # 2. BÚSQUEDA INTELIGENTE (BFS): Extraer cadenas que SÍ son aceptadas
+        cola = [(self.estado_inicial, "")]
+        visitados = set()
+        cadenas_positivas_encontradas = 0
+        while cola and cadenas_positivas_encontradas < (cantidad // 3): # Al menos 1/3 del dataset positivas
+            estado_actual, cadena_acumulada = cola.pop(0)
+            if len(cadena_acumulada) > 15: 
+                continue
+            if estado_actual in self.estados_finales:
+                agregar(cadena_acumulada)
+                cadenas_positivas_encontradas += 1
+            estado_hash = (estado_actual, len(cadena_acumulada))
+            if estado_hash in visitados: continue
+            visitados.add(estado_hash)
+            if estado_actual in self.transiciones:
+                reglas = self.transiciones[estado_actual]
+                if isinstance(reglas, dict):
+                    for simbolo, destinos in reglas.items():
+                        for dest in destinos:
+                            cola.append((dest, cadena_acumulada + simbolo))
+        # 3. Rellenar el resto con cadenas aleatorias (para tener casos negativos de prueba)
         intentos = 0
         while len(data) < cantidad and intentos < cantidad * 5:
-            l = random.randint(1, 10)
+            l = random.randint(1, 12)
             s = "".join(random.choice(self.alfabeto) for _ in range(l))
-            if not any(d['input'] == s for d in data):
-                data.append({'input': s, 'label': self.simular(s)})
+            agregar(s)
             intentos += 1
         return data
 
@@ -86,7 +112,6 @@ class BaseOptimizer:
     def __init__(self, original):
         # 1. Normalizamos el autómata antes de hacer cualquier cosa
         self.original = self.normalizar_transiciones(original)
-        
         # 2. Iniciamos el Oráculo con la versión ya normalizada
         self.oracle = AutomataOracle(self.original)
         self.dataset = self.oracle.generar_dataset(300)
