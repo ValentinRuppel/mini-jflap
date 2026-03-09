@@ -79,7 +79,7 @@ class AutomataOracle:
                 cadenas_vistas.add(cadena)
         agregar("")
         for c in self.alfabeto: agregar(c)
-        # 2. BÚSQUEDA INTELIGENTE (BFS): Extraer cadenas que SÍ son aceptadas
+        # 2. BÚSQUEDA INTELIGENTE (BPA): Extraer cadenas que SÍ son aceptadas
         cola = [(self.estado_inicial, "")]
         visitados = set()
         cadenas_positivas_encontradas = 0
