@@ -5,12 +5,8 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-import './bootstrap';
-import App from './components/App.vue';
 
-createApp(App).mount('#app');
-
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'FLEXA';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

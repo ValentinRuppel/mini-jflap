@@ -33,17 +33,18 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Reset Password" />
+        <Head title="Restablecer contraseña" />
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="Correo electrónico" />
 
                 <TextInput
                     id="email"
                     type="email"
                     class="mt-1 block w-full"
                     v-model="form.email"
+                    placeholder="ejemplo@correo.com"
                     required
                     autofocus
                     autocomplete="username"
@@ -53,13 +54,14 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+                <InputLabel for="password" value="Nueva contraseña" />
 
                 <TextInput
                     id="password"
                     type="password"
                     class="mt-1 block w-full"
                     v-model="form.password"
+                    placeholder="Mínimo 8 caracteres"
                     required
                     autocomplete="new-password"
                 />
@@ -70,7 +72,7 @@ const submit = () => {
             <div class="mt-4">
                 <InputLabel
                     for="password_confirmation"
-                    value="Confirm Password"
+                    value="Confirmar contraseña"
                 />
 
                 <TextInput
@@ -78,6 +80,7 @@ const submit = () => {
                     type="password"
                     class="mt-1 block w-full"
                     v-model="form.password_confirmation"
+                    placeholder="Repetí tu nueva contraseña"
                     required
                     autocomplete="new-password"
                 />
@@ -93,7 +96,7 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Reset Password
+                    Restablecer contraseña
                 </PrimaryButton>
             </div>
         </form>

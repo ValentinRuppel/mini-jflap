@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/automatas/{automata}', [AutomataPageController::class, 'update'])->name('automatas.update');
     Route::delete('/automatas/{automata}', [AutomataPageController::class, 'destroy'])->name('automatas.destroy');
     Route::post('/automatas/{automata}/optimizar', [AutomataPageController::class, 'optimize'])->name('automatas.optimize');
+    Route::post('/automatas/{automata}/benchmark', [AutomataPageController::class, 'benchmark'])->name('automatas.benchmark');
 });
 
 require __DIR__.'/auth.php';

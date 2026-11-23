@@ -22,7 +22,7 @@ import { Link } from '@inertiajs/vue3';
                         </svg>
                     </div>
                 </Link>
-                <h2 class="text-2xl font-bold text-gray-800 tracking-tight">Mini-JFLAP</h2>
+                <h2 class="text-2xl font-bold text-gray-800 tracking-tight">FLEXA</h2>
                 <p class="text-sm text-gray-500 mt-1">Tu laboratorio de autómatas</p>
             </div>
 
@@ -30,7 +30,7 @@ import { Link } from '@inertiajs/vue3';
         </div>
 
         <div class="mt-8 text-center text-xs text-gray-400 z-10">
-            &copy; 2025 Facultad de Ingenieria
+            &copy; 2026 Facultad de Ingeniería
         </div>
     </div>
 </template>

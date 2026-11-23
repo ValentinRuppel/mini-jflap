@@ -27,7 +27,7 @@
                     class="text-sm text-gray-600 hover:text-blue-600 font-medium flex items-center gap-1">💾
                     Exportar</button>
                 <div class="h-4 w-px bg-gray-300"></div>
-                <Link :href="route('automatas.index')" class="text-sm text-gray-500 hover:text-gray-800">Volver</Link>
+                <Link :href="route('automatas.index')" prefetch class="text-sm text-gray-500 hover:text-gray-800">Volver</Link>
             </div>
         </header>
 
@@ -117,18 +117,30 @@
                             </div>
                         </div>
 
+                        <div v-if="automata.tipo === 'AP'"
+                            class="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+                            <p class="font-bold flex items-center gap-1.5 text-amber-800">
+                                <span>⚠️</span> No aplicable a Autómatas de Pila (AP)
+                            </p>
+                            <p class="text-[11px] leading-relaxed text-amber-800/90">
+                                La minimización automática no aplica a Autómatas de Pila porque el problema de
+                                <strong>equivalencia general de AP es indecidible</strong> en la teoría de lenguajes
+                                formales. Disponible para <strong>DFA</strong> y <strong>NFA</strong>.
+                            </p>
+                        </div>
+
                         <div class="mb-3">
                             <label
                                 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Método</label>
-                            <select v-model="algoritmoSeleccionado"
-                                class="w-full text-xs border-gray-200 rounded-lg bg-gray-50 focus:border-purple-500 focus:ring-purple-500">
+                            <select v-model="algoritmoSeleccionado" :disabled="automata.tipo === 'AP'"
+                                class="w-full text-xs border-gray-200 rounded-lg bg-gray-50 focus:border-purple-500 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="genetico">🧬 Algoritmo Genético</option>
                                 <option value="sa">🔥 Simulated Annealing</option>
                             </select>
                         </div>
 
-                        <button @click="optimizarConIA" :disabled="procesandoIA"
-                            class="w-full relative overflow-hidden group bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-wait flex justify-center items-center">
+                        <button @click="optimizarConIA" :disabled="procesandoIA || procesandoBenchmark || automata.tipo === 'AP'"
+                            class="w-full relative overflow-hidden group bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
                             <span v-if="!procesandoIA">Optimizar Autómata</span>
                             <span v-else class="flex items-center gap-2">
                                 <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg"
@@ -142,6 +154,45 @@
                                 Procesando...
                             </span>
                         </button>
+
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    Corridas (N)
+                                </span>
+                                <div class="inline-flex rounded-lg bg-gray-100 p-0.5 gap-0.5">
+                                    <button v-for="n in [10, 25, 30]" :key="n" type="button"
+                                        @click="corridasBenchmark = n" :disabled="procesandoBenchmark || automata.tipo === 'AP'"
+                                        :class="corridasBenchmark === n
+                                            ? 'bg-white text-indigo-700 shadow-sm font-bold'
+                                            : 'text-gray-500 hover:text-gray-700'"
+                                        class="px-2.5 py-0.5 text-[11px] rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                        {{ n }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="button" @click="ejecutarBenchmark"
+                                :disabled="procesandoBenchmark || procesandoIA || automata.tipo === 'AP'"
+                                class="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+                                <span v-if="!procesandoBenchmark">📊 Comparar SA vs Genético (Experimento)</span>
+                                <span v-else class="flex items-center gap-2">
+                                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg"
+                                        fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                    Ejecutando {{ corridasBenchmark }} corridas...
+                                </span>
+                            </button>
+
+                            <p v-if="errorBenchmark" class="mt-2 text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-lg p-2">
+                                {{ errorBenchmark }}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -197,6 +248,26 @@
                             <span class="text-[10px] text-blue-600 font-bold">ESTADOS</span>
                         </div>
                     </div>
+
+                    <div v-if="reporteModal.evaluaciones_oraculo !== undefined" class="grid grid-cols-2 gap-4">
+                        <div class="bg-purple-50/70 p-3 rounded-xl border border-purple-100 text-center">
+                            <p class="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Evaluaciones Oráculo</p>
+                            <p class="text-lg font-mono font-bold text-purple-900 mt-0.5">
+                                {{ reporteModal.evaluaciones_oraculo }}
+                            </p>
+                        </div>
+                        <div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100 text-center">
+                            <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">
+                                {{ reporteModal.algoritmo === 'genetico' ? 'Mejor Generación' : 'Mejor Iteración' }}
+                            </p>
+                            <p class="text-lg font-mono font-bold text-indigo-900 mt-0.5">
+                                {{ reporteModal.mejor_iteracion > 0 ? `#${reporteModal.mejor_iteracion}` : 'Inicial (0)' }}
+                                <span v-if="reporteModal.total_iteraciones" class="text-xs font-normal text-indigo-500">
+                                    / {{ reporteModal.total_iteraciones }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="p-4 bg-gray-50 border-t border-gray-100">
@@ -207,14 +278,361 @@
                 </div>
             </div>
         </div>
+
+        <!-- MODAL INFORME ESTADÍSTICO COMPARATIVO (BENCHMARK) -->
+        <div v-if="benchmarkModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 text-white flex justify-between items-start gap-4 shrink-0">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-400/30 text-[10px] font-bold uppercase tracking-widest text-indigo-200">
+                                Análisis No Paramétrico
+                            </span>
+                            <span class="text-xs text-slate-300 font-mono">
+                                N = {{ benchmarkModal.corridas }} corridas independientes / algoritmo
+                            </span>
+                        </div>
+                        <h2 class="text-2xl font-extrabold tracking-tight mt-1">
+                            Informe Estadístico Comparativo: SA vs. Algoritmo Genético
+                        </h2>
+                        <p class="text-xs text-slate-300 mt-0.5">
+                            Autómata: <span class="font-semibold text-white">{{ automata.nombre }}</span> ({{ automata.tipo }})
+                            • Estados iniciales: <span class="font-mono font-bold text-indigo-200">{{ benchmarkModal.estados_iniciales }}</span>
+                        </p>
+                    </div>
+                    <button @click="benchmarkModal = null"
+                        class="text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg p-2 transition"
+                        title="Cerrar">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Contenido scrollable -->
+                <div class="p-6 overflow-y-auto space-y-6 bg-slate-50/50">
+                    <!-- 1. Tarjetas Resumen -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- SA -->
+                        <div class="bg-white rounded-2xl border border-orange-200 shadow-sm overflow-hidden">
+                            <div class="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 text-white flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">🔥</span>
+                                    <div>
+                                        <h3 class="font-bold text-sm leading-tight">Simulated Annealing (SA)</h3>
+                                        <p class="text-[10px] text-orange-100 uppercase tracking-wider">Trayectoria única • T₀=2.0, α=0.92</p>
+                                    </div>
+                                </div>
+                                <span class="text-[11px] font-mono bg-white/20 px-2 py-0.5 rounded-full">
+                                    ~{{ benchmarkModal.sa.evaluaciones_promedio }} evals
+                                </span>
+                            </div>
+                            <div class="p-4 grid grid-cols-2 gap-3">
+                                <div class="bg-orange-50/60 rounded-xl p-3 border border-orange-100">
+                                    <p class="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Estados Finales</p>
+                                    <div class="mt-1 flex items-baseline gap-2">
+                                        <span class="text-2xl font-mono font-extrabold text-gray-900">{{ formatNum(benchmarkModal.sa.estados.mediana, 1) }}</span>
+                                        <span class="text-[11px] text-gray-500">mediana</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">
+                                        x̄ = {{ formatNum(benchmarkModal.sa.estados.media, 2) }} <span class="text-gray-400">(σ={{ formatNum(benchmarkModal.sa.estados.desviacion_std, 2) }})</span>
+                                    </p>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tiempo de Ejecución</p>
+                                    <div class="mt-1 flex items-baseline gap-1.5">
+                                        <span class="text-2xl font-mono font-extrabold text-gray-900">{{ formatNum(benchmarkModal.sa.tiempo_ms.mediana, 1) }}</span>
+                                        <span class="text-xs text-gray-500 font-mono">ms</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">
+                                        x̄ = {{ formatNum(benchmarkModal.sa.tiempo_ms.media, 2) }} ms
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Genético -->
+                        <div class="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-white flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">🧬</span>
+                                    <div>
+                                        <h3 class="font-bold text-sm leading-tight">Algoritmo Genético (GA)</h3>
+                                        <p class="text-[10px] text-blue-100 uppercase tracking-wider">Poblacional • 16 ind., 25 gen.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[11px] font-mono bg-white/20 px-2 py-0.5 rounded-full">
+                                    ~{{ benchmarkModal.genetico.evaluaciones_promedio }} evals
+                                </span>
+                            </div>
+                            <div class="p-4 grid grid-cols-2 gap-3">
+                                <div class="bg-blue-50/60 rounded-xl p-3 border border-blue-100">
+                                    <p class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Estados Finales</p>
+                                    <div class="mt-1 flex items-baseline gap-2">
+                                        <span class="text-2xl font-mono font-extrabold text-gray-900">{{ formatNum(benchmarkModal.genetico.estados.mediana, 1) }}</span>
+                                        <span class="text-[11px] text-gray-500">mediana</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">
+                                        x̄ = {{ formatNum(benchmarkModal.genetico.estados.media, 2) }} <span class="text-gray-400">(σ={{ formatNum(benchmarkModal.genetico.estados.desviacion_std, 2) }})</span>
+                                    </p>
+                                </div>
+                                <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Tiempo de Ejecución</p>
+                                    <div class="mt-1 flex items-baseline gap-1.5">
+                                        <span class="text-2xl font-mono font-extrabold text-gray-900">{{ formatNum(benchmarkModal.genetico.tiempo_ms.mediana, 1) }}</span>
+                                        <span class="text-xs text-gray-500 font-mono">ms</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600 mt-1 font-mono">
+                                        x̄ = {{ formatNum(benchmarkModal.genetico.tiempo_ms.media, 2) }} ms
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Gráficos Boxplot en SVG -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div v-for="chart in boxplotCharts" :key="chart.id"
+                            class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <h4 class="text-sm font-bold text-gray-800">{{ chart.titulo }}</h4>
+                                    <p class="text-[11px] text-gray-500">{{ chart.subtitulo }}</p>
+                                </div>
+                                <span class="text-[10px] font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                    {{ chart.unidad }}
+                                </span>
+                            </div>
+
+                            <svg viewBox="0 0 360 225" class="w-full h-auto select-none">
+                                <!-- Grilla y Eje Y -->
+                                <g v-for="(tick, idx) in chart.ticks" :key="idx">
+                                    <line x1="54" :y1="tick.y" x2="342" :y2="tick.y" stroke="#e2e8f0" stroke-dasharray="3,3" stroke-width="1" />
+                                    <text x="48" :y="tick.y + 3.5" text-anchor="end" fill="#64748b" font-size="10" font-family="monospace">
+                                        {{ tick.label }}
+                                    </text>
+                                </g>
+                                <line x1="54" y1="18" x2="54" y2="180" stroke="#94a3b8" stroke-width="1.2" />
+                                <line x1="54" y1="180" x2="342" y2="180" stroke="#94a3b8" stroke-width="1.2" />
+
+                                <!-- Series SA y Genético -->
+                                <g v-for="s in chart.series" :key="s.key">
+                                    <!-- Bigote superior e inferior -->
+                                    <line :x1="s.cx" :y1="s.yBigoteSup" :x2="s.cx" :y2="s.yQ3" :stroke="s.stroke" stroke-width="1.8" stroke-dasharray="4,2" />
+                                    <line :x1="s.cx" :y1="s.yQ1" :x2="s.cx" :y2="s.yBigoteInf" :stroke="s.stroke" stroke-width="1.8" stroke-dasharray="4,2" />
+                                    <!-- Topes de bigotes -->
+                                    <line :x1="s.cx - 14" :y1="s.yBigoteSup" :x2="s.cx + 14" :y2="s.yBigoteSup" :stroke="s.stroke" stroke-width="2" />
+                                    <line :x1="s.cx - 14" :y1="s.yBigoteInf" :x2="s.cx + 14" :y2="s.yBigoteInf" :stroke="s.stroke" stroke-width="2" />
+
+                                    <!-- Caja Q1 - Q3 -->
+                                    <rect :x="s.cx - 28" :y="s.boxY" width="56" :height="s.boxH" rx="4"
+                                        :fill="s.fill" :stroke="s.stroke" stroke-width="2">
+                                        <title>{{ s.nombre }} — Q1: {{ s.raw.q1 }} | Mediana: {{ s.raw.mediana }} | Q3: {{ s.raw.q3 }} | RIC: {{ s.raw.ric }}</title>
+                                    </rect>
+
+                                    <!-- Línea de Mediana -->
+                                    <line :x1="s.cx - 28" :y1="s.yMediana" :x2="s.cx + 28" :y2="s.yMediana"
+                                        :stroke="s.medianStroke" stroke-width="3" />
+
+                                    <!-- Rombo de Media -->
+                                    <polygon :points="`${s.cx},${s.yMedia - 4.5} ${s.cx + 4.5},${s.yMedia} ${s.cx},${s.yMedia + 4.5} ${s.cx - 4.5},${s.yMedia}`"
+                                        fill="#0f172a" stroke="#ffffff" stroke-width="1">
+                                        <title>Media (x̄): {{ s.raw.media }} {{ chart.unidad }}</title>
+                                    </polygon>
+
+                                    <!-- Outliers -->
+                                    <circle v-for="(out, oIdx) in s.outliers" :key="oIdx"
+                                        :cx="out.x" :cy="out.y" r="3.8"
+                                        fill="#ef4444" fill-opacity="0.85" stroke="#991b1b" stroke-width="1">
+                                        <title>Outlier: {{ out.val }} {{ chart.unidad }}</title>
+                                    </circle>
+
+                                    <!-- Etiqueta eje X -->
+                                    <text :x="s.cx" y="198" text-anchor="middle" fill="#1e293b" font-size="11" font-weight="700">
+                                        {{ s.nombre }}
+                                    </text>
+                                    <text :x="s.cx" y="212" text-anchor="middle" fill="#64748b" font-size="9.5" font-family="monospace">
+                                        Med: {{ formatNum(s.raw.mediana, chart.esEntero ? 1 : 1) }} | RIC: {{ formatNum(s.raw.ric, chart.esEntero ? 1 : 1) }}
+                                    </text>
+                                </g>
+                            </svg>
+
+                            <div class="mt-1 flex flex-wrap items-center justify-center gap-3 text-[10px] text-gray-500">
+                                <span class="flex items-center gap-1"><span class="inline-block w-3 h-2 rounded-sm bg-slate-200 border border-slate-500"></span> Caja Q₁–Q₃</span>
+                                <span class="flex items-center gap-1"><span class="inline-block w-3 h-0.5 bg-slate-800"></span> Mediana</span>
+                                <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rotate-45 bg-slate-900"></span> Media (x̄)</span>
+                                <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-red-500"></span> Outlier</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Tabla de Estadísticos Descriptivos -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-gray-800">Tabla de Estadísticos Descriptivos</h4>
+                            <span class="text-[11px] text-gray-400">Cuartiles y dispersión sobre N = {{ benchmarkModal.corridas }} corridas</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-wider border-b border-gray-200">
+                                        <th class="py-2.5 px-4 font-bold">Métrica / Algoritmo</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Media <span class="normal-case">(x̄)</span></th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Desv. Est. <span class="normal-case">(σ)</span></th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Q₁</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Mediana</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Q₃</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">RIC</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Mín</th>
+                                        <th class="py-2.5 px-3 font-bold text-right">Máx</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 font-mono">
+                                    <tr v-for="row in tablaEstadisticos" :key="row.label" class="hover:bg-slate-50/80">
+                                        <td class="py-2.5 px-4 font-sans font-semibold text-gray-800 flex items-center gap-2">
+                                            <span :class="row.dotClass" class="w-2.5 h-2.5 rounded-full shrink-0"></span>
+                                            <span>{{ row.label }}</span>
+                                        </td>
+                                        <td class="py-2.5 px-3 text-right text-gray-700">{{ formatNum(row.stats.media, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-gray-500">{{ formatNum(row.stats.desviacion_std, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-gray-700">{{ formatNum(row.stats.q1, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right font-bold text-gray-900 bg-slate-50/70">{{ formatNum(row.stats.mediana, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-gray-700">{{ formatNum(row.stats.q3, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-indigo-700 font-semibold">{{ formatNum(row.stats.ric, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-gray-600">{{ formatNum(row.stats.min, row.dec) }}</td>
+                                        <td class="py-2.5 px-3 text-right text-gray-600">{{ formatNum(row.stats.max, row.dec) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 4. Panel de Validación Estadística (Test de Wilcoxon Rank-Sum) -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h4 class="text-sm font-bold text-gray-800">
+                                    Validación Estadística: Test de Wilcoxon Rank-Sum (Mann-Whitney U)
+                                </h4>
+                                <p class="text-xs text-gray-500">
+                                    Prueba no paramétrica bilateral con corrección por empates y nivel de significancia α = 0.05.
+                                </p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-xs font-bold">
+                                α = 0.05
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-slate-50 rounded-xl p-3.5 border border-slate-200/80">
+                            <div>
+                                <span class="font-bold text-slate-700">H₀ (Hipótesis Nula):</span>
+                                <span class="text-slate-600"> No existe diferencia estadísticamente significativa entre las distribuciones de SA y Algoritmo Genético.</span>
+                            </div>
+                            <div>
+                                <span class="font-bold text-slate-700">H₁ (Hipótesis Alternativa):</span>
+                                <span class="text-slate-600"> Existe una diferencia estadísticamente significativa entre ambos algoritmos.</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Wilcoxon Estados -->
+                            <div class="rounded-xl border p-4"
+                                :class="benchmarkModal.wilcoxon_estados.significativo ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'">
+                                <div class="flex items-center justify-between gap-2 mb-3">
+                                    <h5 class="font-bold text-sm text-gray-800">Calidad (Estados Finales)</h5>
+                                    <span v-if="benchmarkModal.wilcoxon_estados.significativo"
+                                        class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        ✓ Significativo (Se rechaza H₀)
+                                    </span>
+                                    <span v-else
+                                        class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                        ≈ No significativo (No se rechaza H₀)
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center font-mono">
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">U</p>
+                                        <p class="text-sm font-bold text-gray-800">{{ formatNum(benchmarkModal.wilcoxon_estados.estadistico_u, 1) }}</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">Z-Score</p>
+                                        <p class="text-sm font-bold text-gray-800">{{ formatNum(benchmarkModal.wilcoxon_estados.z_score, 3) }}</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">p-value</p>
+                                        <p class="text-sm font-extrabold"
+                                            :class="benchmarkModal.wilcoxon_estados.significativo ? 'text-emerald-700' : 'text-amber-700'">
+                                            {{ formatPValue(benchmarkModal.wilcoxon_estados.p_value) }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Wilcoxon Tiempo -->
+                            <div class="rounded-xl border p-4"
+                                :class="benchmarkModal.wilcoxon_tiempo.significativo ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'">
+                                <div class="flex items-center justify-between gap-2 mb-3">
+                                    <h5 class="font-bold text-sm text-gray-800">Eficiencia (Tiempo en ms)</h5>
+                                    <span v-if="benchmarkModal.wilcoxon_tiempo.significativo"
+                                        class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        ✓ Significativo (Se rechaza H₀)
+                                    </span>
+                                    <span v-else
+                                        class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                        ≈ No significativo (No se rechaza H₀)
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center font-mono">
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">U</p>
+                                        <p class="text-sm font-bold text-gray-800">{{ formatNum(benchmarkModal.wilcoxon_tiempo.estadistico_u, 1) }}</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">Z-Score</p>
+                                        <p class="text-sm font-bold text-gray-800">{{ formatNum(benchmarkModal.wilcoxon_tiempo.z_score, 3) }}</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-2 border border-gray-100">
+                                        <p class="text-[10px] text-gray-400 font-sans uppercase">p-value</p>
+                                        <p class="text-sm font-extrabold"
+                                            :class="benchmarkModal.wilcoxon_tiempo.significativo ? 'text-emerald-700' : 'text-amber-700'">
+                                            {{ formatPValue(benchmarkModal.wilcoxon_tiempo.p_value) }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-6 py-4 bg-white border-t border-gray-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
+                    <p class="text-xs text-gray-400">
+                        Criterio de outliers: Regla de Tukey (1.5 × RIC) • Test bilateral de Wilcoxon Rank-Sum.
+                    </p>
+                    <div class="flex items-center gap-3">
+                        <button type="button" @click="descargarBenchmarkJson"
+                            class="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-sm font-bold transition flex items-center gap-2">
+                            <span>📥</span> Descargar Reporte JSON
+                        </button>
+                        <button type="button" @click="benchmarkModal = null"
+                            class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Network } from 'vis-network';
+import axios from 'axios';
 
 const props = defineProps({ automata: Object });
 const networkContainer = ref(null);
@@ -225,6 +643,202 @@ const page = usePage();
 const procesandoIA = ref(false);
 const algoritmoSeleccionado = ref('genetico');
 const reporteModal = ref(null);
+
+// --- BENCHMARK COMPARATIVO ---
+const corridasBenchmark = ref(25);
+const procesandoBenchmark = ref(false);
+const benchmarkModal = ref(null);
+const errorBenchmark = ref(null);
+
+async function ejecutarBenchmark() {
+    procesandoBenchmark.value = true;
+    errorBenchmark.value = null;
+
+    try {
+        const response = await axios.post(
+            route('automatas.benchmark', props.automata.id),
+            { corridas: corridasBenchmark.value },
+            {
+                baseURL: '',
+                withCredentials: true,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+            }
+        );
+
+        if (response.data?.success && response.data?.benchmark) {
+            benchmarkModal.value = response.data.benchmark;
+        } else {
+            errorBenchmark.value = response.data?.message || 'No se pudo completar el experimento.';
+        }
+    } catch (err) {
+        errorBenchmark.value =
+            err?.response?.data?.message ||
+            err?.message ||
+            'Error de conexión o servidor al ejecutar el experimento.';
+    } finally {
+        procesandoBenchmark.value = false;
+    }
+}
+
+function descargarBenchmarkJson() {
+    if (!benchmarkModal.value) return;
+    const payload = {
+        automata: {
+            id: props.automata.id,
+            nombre: props.automata.nombre,
+            tipo: props.automata.tipo,
+        },
+        generado_en: new Date().toISOString(),
+        benchmark: benchmarkModal.value,
+    };
+    const dataStr = JSON.stringify(payload, null, 2);
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([dataStr], { type: 'application/json' }));
+    const nombreSeguro = (props.automata.nombre || 'automata').replace(/[^a-zA-Z0-9_-]+/g, '_');
+    link.download = `benchmark_${nombreSeguro}_N${benchmarkModal.value.corridas}.json`;
+    link.click();
+}
+
+function formatNum(val, dec = 2) {
+    if (val === null || val === undefined || Number.isNaN(Number(val))) return '—';
+    const num = Number(val);
+    return Number.isInteger(num) && dec <= 1 ? String(num) : num.toFixed(dec);
+}
+
+function formatPValue(p) {
+    if (p === null || p === undefined || Number.isNaN(Number(p))) return '—';
+    const num = Number(p);
+    if (num < 0.0001) return '< 0.0001';
+    return num.toFixed(4);
+}
+
+function construirBoxplotSvg(id, titulo, subtitulo, saStats, gaStats, unidad, esEntero) {
+    const plotTop = 20;
+    const plotBottom = 178;
+    const plotHeight = plotBottom - plotTop;
+
+    const allVals = [
+        saStats.min, saStats.max, saStats.bigote_inf, saStats.bigote_sup, ...(saStats.outliers || []),
+        gaStats.min, gaStats.max, gaStats.bigote_inf, gaStats.bigote_sup, ...(gaStats.outliers || []),
+    ].filter((v) => typeof v === 'number' && !Number.isNaN(v));
+
+    let rawMin = allVals.length ? Math.min(...allVals) : 0;
+    let rawMax = allVals.length ? Math.max(...allVals) : 1;
+
+    let yMin;
+    let yMax;
+    if (Math.abs(rawMax - rawMin) < 1e-9) {
+        const pad = esEntero ? 1 : Math.max(0.5, rawMax * 0.25);
+        yMin = Math.max(0, rawMin - pad);
+        yMax = rawMax + pad;
+    } else {
+        const pad = (rawMax - rawMin) * 0.12;
+        yMin = Math.max(0, rawMin - pad);
+        yMax = rawMax + pad;
+    }
+    if (yMax <= yMin) yMax = yMin + 1;
+
+    const mapY = (v) => plotBottom - ((v - yMin) / (yMax - yMin)) * plotHeight;
+
+    const numTicks = 5;
+    const ticks = [];
+    for (let i = 0; i < numTicks; i++) {
+        const ratio = i / (numTicks - 1);
+        const val = yMin + ratio * (yMax - yMin);
+        ticks.push({
+            y: mapY(val),
+            label: esEntero ? val.toFixed(1).replace(/\.0$/, '') : val.toFixed(1),
+        });
+    }
+
+    const buildSerie = (key, nombre, stats, cx, fill, stroke, medianStroke) => {
+        const yQ1 = mapY(stats.q1);
+        const yQ3 = mapY(stats.q3);
+        const yMediana = mapY(stats.mediana);
+        const yMedia = mapY(stats.media);
+        const yBigoteInf = mapY(stats.bigote_inf);
+        const yBigoteSup = mapY(stats.bigote_sup);
+        const rawBoxH = Math.abs(yQ1 - yQ3);
+        const boxH = Math.max(rawBoxH, 4);
+        const boxY = rawBoxH < 4 ? yMediana - 2 : Math.min(yQ1, yQ3);
+
+        const outliers = (stats.outliers || []).map((val, idx, arr) => {
+            const offset = arr.length > 1 ? ((idx % 3) - 1) * 6 : 0;
+            return { x: cx + offset, y: mapY(val), val };
+        });
+
+        return {
+            key,
+            nombre,
+            cx,
+            fill,
+            stroke,
+            medianStroke,
+            yQ1,
+            yQ3,
+            yMediana,
+            yMedia,
+            yBigoteInf,
+            yBigoteSup,
+            boxY,
+            boxH,
+            outliers,
+            raw: stats,
+        };
+    };
+
+    return {
+        id,
+        titulo,
+        subtitulo,
+        unidad,
+        esEntero,
+        ticks,
+        series: [
+            buildSerie('sa', 'Simulated Annealing', saStats, 130, '#ffedd5', '#ea580c', '#9a3412'),
+            buildSerie('ga', 'Algoritmo Genético', gaStats, 266, '#dbeafe', '#2563eb', '#1e3a8a'),
+        ],
+    };
+}
+
+const boxplotCharts = computed(() => {
+    if (!benchmarkModal.value) return [];
+    const bm = benchmarkModal.value;
+    return [
+        construirBoxplotSvg(
+            'estados',
+            'Distribución de Estados Finales',
+            'Menor cantidad de estados = mejor minimización',
+            bm.sa.estados,
+            bm.genetico.estados,
+            'estados',
+            true
+        ),
+        construirBoxplotSvg(
+            'tiempo',
+            'Distribución de Tiempo de Ejecución',
+            'Costo computacional por corrida independiente',
+            bm.sa.tiempo_ms,
+            bm.genetico.tiempo_ms,
+            'ms',
+            false
+        ),
+    ];
+});
+
+const tablaEstadisticos = computed(() => {
+    if (!benchmarkModal.value) return [];
+    const bm = benchmarkModal.value;
+    return [
+        { label: 'Estados Finales — Simulated Annealing', stats: bm.sa.estados, dec: 2, dotClass: 'bg-orange-500' },
+        { label: 'Estados Finales — Algoritmo Genético', stats: bm.genetico.estados, dec: 2, dotClass: 'bg-blue-600' },
+        { label: 'Tiempo (ms) — Simulated Annealing', stats: bm.sa.tiempo_ms, dec: 2, dotClass: 'bg-amber-400' },
+        { label: 'Tiempo (ms) — Algoritmo Genético', stats: bm.genetico.tiempo_ms, dec: 2, dotClass: 'bg-indigo-500' },
+    ];
+});
 
 // --- EXPORTAR ---
 function exportarJson() {

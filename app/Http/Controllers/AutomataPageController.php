@@ -6,6 +6,7 @@ use App\Models\Automata;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -14,7 +15,17 @@ class AutomataPageController extends Controller
 {
     public function index()
     {
-        $automatas = Automata::where('user_id', Auth::id())
+        $automatas = Automata::query()
+            ->select([
+                'id',
+                'nombre',
+                'tipo',
+                'is_optimized',
+                'created_at',
+                DB::raw("COALESCE(JSON_LENGTH(json_definicion, '$.estados'), 0) as estados_count"),
+                DB::raw("COALESCE(JSON_LENGTH(json_definicion, '$.alfabeto'), 0) as alfabeto_count"),
+            ])
+            ->where('user_id', Auth::id())
             ->orderByDesc('created_at')
             ->paginate(9);
 
@@ -82,6 +93,52 @@ class AutomataPageController extends Controller
         return back()->withErrors(['error' => 'Error crítico.']);
         }
     }
+
+    public function benchmark(Request $request, Automata $automata)
+    {
+        if ($automata->user_id !== Auth::id()) abort(403);
+
+        $validated = $request->validate([
+            'corridas' => 'nullable|integer|min:5|max:50',
+        ]);
+
+        $corridas = (int) ($validated['corridas'] ?? 25);
+
+        $payload = json_encode([
+            'modo' => 'benchmark',
+            'corridas' => $corridas,
+            'tipo' => $automata->tipo,
+            'json_definicion' => $automata->json_definicion,
+        ]);
+
+        $scriptPath = base_path('ai_module/optimizer.py');
+        $command = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' ? 'python' : 'python3';
+
+        $process = new Process([$command, $scriptPath]);
+        $process->setInput($payload);
+        $process->setTimeout(120);
+
+        try {
+            $process->mustRun();
+            $output = $process->getOutput();
+            $result = json_decode($output, true);
+
+            if (!$result || (isset($result['success']) && !$result['success'])) {
+                $msg = $result['message'] ?? 'Error desconocido al ejecutar el experimento.';
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Fallo IA: ' . $msg,
+                ], 422);
+            }
+
+            return response()->json($result);
+        } catch (ProcessFailedException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error crítico al ejecutar el benchmark en Python.',
+            ], 500);
+        }
+    }
     public function show(Automata $automata)
     {
         if ($automata->user_id !== Auth::id()) {
@@ -105,7 +162,7 @@ class AutomataPageController extends Controller
         if ($automata->user_id !== Auth::id()) abort(403);
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
-            'tipo' => 'required|in:DFA,NFA',
+            'tipo' => 'required|in:DFA,NFA,AP',
             'json_definicion' => 'required|array',
         ]);
         $automata->update($validated);

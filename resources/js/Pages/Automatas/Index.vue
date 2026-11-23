@@ -33,7 +33,7 @@
                             <input type="file" ref="fileInput" class="hidden" accept=".json"
                                 @change="handleFileUpload" />
 
-                            <Link :href="route('automatas.create')"
+                            <Link :href="route('automatas.create')" prefetch
                                 class="inline-flex items-center px-5 py-2.5 bg-blue-600 border border-transparent rounded-xl font-bold text-white hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none"
                                     viewBox="0 0 24 24" stroke="currentColor">
@@ -51,7 +51,7 @@
 
                 <div v-if="automatas.data && automatas.data.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-    <Link v-for="aut in automatas.data" :key="aut.id" :href="route('automatas.show', aut.id)"
+    <Link v-for="aut in automatas.data" :key="aut.id" :href="route('automatas.show', aut.id)" prefetch
                         class="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
                         <div
                             class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -59,7 +59,11 @@
 
                         <div class="flex justify-between items-start mb-4">
                             <div class="w-12 h-12 rounded-xl flex items-center justify-center transition-colors"
-                                :class="aut.tipo === 'DFA' ? 'bg-purple-50 text-purple-600 group-hover:bg-purple-100' : 'bg-orange-50 text-orange-600 group-hover:bg-orange-100'">
+                                :class="aut.tipo === 'DFA'
+                                    ? 'bg-purple-50 text-purple-600 group-hover:bg-purple-100'
+                                    : aut.tipo === 'AP'
+                                        ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'
+                                        : 'bg-orange-50 text-orange-600 group-hover:bg-orange-100'">
                                 <span class="font-bold text-sm tracking-tighter">{{ aut.tipo }}</span>
                             </div>
 
@@ -68,7 +72,7 @@
 
                                 <div class="flex items-center gap-1 z-20 relative" @click.prevent>
 
-                                    <Link :href="route('automatas.edit', aut.id)"
+                                    <Link :href="route('automatas.edit', aut.id)" prefetch
                                         class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                         title="Editar">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
@@ -103,14 +107,14 @@
                                         d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z">
                                     </path>
                                 </svg>
-                                {{ aut.json_definicion?.estados?.length || 0 }} Estados
+                                {{ aut.estados_count ?? aut.json_definicion?.estados?.length ?? 0 }} Estados
                             </span>
                             <span class="flex items-center gap-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
-                                {{ aut.json_definicion?.alfabeto?.length || 0 }} Símbolos
+                                {{ aut.alfabeto_count ?? aut.json_definicion?.alfabeto?.length ?? 0 }} Símbolos
                             </span>
                         </div>
                         
@@ -130,7 +134,7 @@
                     <p class="mt-1 text-gray-500 max-w-sm mx-auto mb-6">
                         Comienza creando tu primer diagrama de estados o importa un archivo JSON existente.
                     </p>
-                    <Link :href="route('automatas.create')"
+                    <Link :href="route('automatas.create')" prefetch
                         class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow">
                         Crear mi primer autómata
                     </Link>
@@ -145,6 +149,7 @@
                         </div>
                         <Link v-else
                             :href="link.url"
+                            prefetch
                             class="px-4 py-2 text-sm font-medium border rounded-lg transition-colors shadow-sm"
                             :class="link.active 
                                 ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200' 
@@ -163,7 +168,7 @@ import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 defineProps({
-    automatas: Array
+    automatas: Object
 });
 
 // --- LÓGICA DE IMPORTACIÓN (Reutilizada) ---

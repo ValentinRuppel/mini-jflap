@@ -20,7 +20,7 @@ const showingNavigationDropdown = ref(false);
                         <div class="flex">
                             <!-- Logo -->
                             <div class="shrink-0 flex items-center">
-                                <Link :href="route('automatas.index')">
+                                <Link :href="route('automatas.index')" prefetch>
                                     <ApplicationLogo class="block h-10 w-auto fill-current text-gray-800" />
                                 </Link>
                             </div>
@@ -32,8 +32,9 @@ const showingNavigationDropdown = ref(false);
                                 <NavLink
                                     :href="route('automatas.index')"
                                     :active="route().current('automatas.index')"
+                                    prefetch
                                 >
-                                    Dashboard
+                                    Mis Proyectos
                                 </NavLink>
                             </div>
                         </div>
@@ -68,11 +69,17 @@ const showingNavigationDropdown = ref(false);
 
                                     <template #content>
                                         <DropdownLink
+                                            :href="route('profile.edit')"
+                                            prefetch
+                                        >
+                                            Perfil
+                                        </DropdownLink>
+                                        <DropdownLink
                                             :href="route('logout')"
                                             method="post"
                                             as="button"
                                         >
-                                            Log Out
+                                            Cerrar sesión
                                         </DropdownLink>
                                     </template>
                                 </Dropdown>
@@ -133,9 +140,10 @@ const showingNavigationDropdown = ref(false);
                     <div class="space-y-1 pb-3 pt-2">
                         <ResponsiveNavLink
                             :href="route('automatas.index')"
-                            :active="route().current('automaas')"
+                            :active="route().current('automatas.index')"
+                            prefetch
                         >
-                            Dashboard
+                            Mis Proyectos
                         </ResponsiveNavLink>
                     </div>
 
@@ -155,15 +163,15 @@ const showingNavigationDropdown = ref(false);
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.edit')">
-                                Profile
+                            <ResponsiveNavLink :href="route('profile.edit')" prefetch>
+                                Perfil
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('logout')"
                                 method="post"
                                 as="button"
                             >
-                                Log Out
+                                Cerrar sesión
                             </ResponsiveNavLink>
                         </div>
                     </div>

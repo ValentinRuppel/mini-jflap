@@ -18,7 +18,7 @@ defineProps({
                 FLEXA
             </div>
             <div v-if="canLogin" class="flex gap-4">
-                <Link v-if="$page.props.auth.user" :href="route('automatas.index')" 
+                <Link v-if="$page.props.auth.user" :href="route('automatas.index')" prefetch
                       class="font-semibold text-gray-600 hover:text-gray-900">
                     Ir al Dashboard
                 </Link>
@@ -44,11 +44,11 @@ defineProps({
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
-                <Link :href="route('register')" 
+                <Link :href="route('register')" prefetch
                       class="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-xl shadow-blue-600/20 w-full sm:w-auto">
                     Comenzar Ahora 🚀
                 </Link>
-                <Link :href="route('login')" 
+                <Link :href="route('login')" prefetch
                       class="px-8 py-4 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold text-lg hover:bg-gray-50 transition w-full sm:w-auto">
                     Ya tengo cuenta
                 </Link>
